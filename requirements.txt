@@ -1,1 +1,2 @@
-.venv
+# pip install pyinstaller
+# pyinstaller --onefile --noconsole --name "CaiDatChanPopup" installer.py
