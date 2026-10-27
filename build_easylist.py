@@ -1,5 +1,8 @@
 import sys
 sys.dont_write_bytecode = True
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8', errors='backslashreplace')
+    sys.stderr.reconfigure(encoding='utf-8', errors='backslashreplace')
 
 import os
 import re

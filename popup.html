@@ -36,18 +36,31 @@
             font-weight: 700;
         }
 
-        .stat {
-            background: #313244;
-            padding: 10px;
-            border-radius: 8px;
+        .stat-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
             margin-bottom: 10px;
-            font-size: 13px;
         }
 
-        .count {
-            font-size: 22px;
-            font-weight: bold;
+        .stat-card {
+            background: #313244;
+            padding: 9px 4px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .stat-num {
+            font-size: 20px;
+            font-weight: 800;
             color: #a6e3a1;
+            display: block;
+        }
+
+        .stat-lbl {
+            font-size: 11px;
+            color: #a6adc8;
+            margin-top: 3px;
             display: block;
         }
 
@@ -99,10 +112,15 @@
         <img src="icons/icon48.png" alt="Popup Blocker Pro Logo">
         <h3>Popup Blocker Pro</h3>
     </div>
-    <div class="stat">
-        Đã tiêu diệt
-        <span class="count" id="count">0</span>
-        tab quảng cáo
+    <div class="stat-grid">
+        <div class="stat-card">
+            <span class="stat-num" id="tabCount">0</span>
+            <span class="stat-lbl">🛡️ Trang này</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-num" id="count">0</span>
+            <span class="stat-lbl">🌐 Toàn hệ thống</span>
+        </div>
     </div>
     <div class="domain-box" id="currentDomain">Đang kiểm tra tên miền...</div>
     <button id="whitelistBtn" class="btn-wl-add">Thêm trang này vào Whitelist</button>

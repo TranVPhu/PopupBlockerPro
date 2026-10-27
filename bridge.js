@@ -13,7 +13,9 @@
     .ad-slot, .ad-box, .ads-box, .qc-banner, .box-quang-cao,
     div[id^="div-gpt-ad"], ins.adsbygoogle, iframe[src*="ads"],
     a[href*="adsterra"], a[href*="propellerads"], a[href*="mgid.com"],
-    .floating-ads, .sticky-ads, .bottom-ads, .catfish-ads, #catfish-ad {
+    .floating-ads, .sticky-ads, .bottom-ads, .catfish-ads, #catfish-ad,
+    .adblock-modal, .adblock-overlay, .adblock-backdrop, #adblock-modal,
+    [class*="adblock-modal"], [id*="adblock-detector"] {
       display: none !important;
       visibility: hidden !important;
       height: 0 !important;
@@ -166,6 +168,18 @@
         }
     });
 
+    let currentSessionToken = null;
+
+    // Lắng nghe yêu cầu handshake bảo mật từ inject.js
+    window.addEventListener('__pb_handshake__', (e) => {
+        if (e.detail && e.detail.token) {
+            currentSessionToken = e.detail.token;
+            window.dispatchEvent(new CustomEvent('__pb_sync_' + currentSessionToken, {
+                detail: { active: isSiteProtected }
+            }));
+        }
+    });
+
     function syncProtectionState() {
         chrome.storage.local.get(['enabled', 'whitelist', 'customHidden'], (res) => {
             const globalEnabled = res.enabled !== undefined ? res.enabled : true;
@@ -175,8 +189,10 @@
             );
 
             isSiteProtected = globalEnabled && !isWhitelisted;
-            if (document.documentElement) {
-                document.documentElement.dataset.pbActive = isSiteProtected ? 'true' : 'false';
+            if (currentSessionToken) {
+                window.dispatchEvent(new CustomEvent('__pb_sync_' + currentSessionToken, {
+                    detail: { active: isSiteProtected }
+                }));
             }
             applyCosmeticFilter(res.customHidden || {});
         });
@@ -185,15 +201,40 @@
     syncProtectionState();
     chrome.storage.onChanged.addListener(syncProtectionState);
 
-    // 7. Quét xóa lớp phủ vô hình đè lên video & Tự động tua Video Ads
+    // 7. Theo dõi cử chỉ click chuột tin cậy của người dùng (tránh đóng nhầm tab hợp lệ)
+    document.addEventListener('click', (e) => {
+        if (e.isTrusted) {
+            const anchor = e.target.closest('a');
+            chrome.runtime.sendMessage({
+                action: 'user_trusted_click',
+                url: anchor && anchor.href ? anchor.href : '',
+                timestamp: Date.now()
+            }).catch(() => { });
+        }
+    }, true);
+
+    document.addEventListener('auxclick', (e) => {
+        if (e.isTrusted && e.button === 1) {
+            const anchor = e.target.closest('a');
+            chrome.runtime.sendMessage({
+                action: 'user_trusted_click',
+                url: anchor && anchor.href ? anchor.href : '',
+                timestamp: Date.now()
+            }).catch(() => { });
+        }
+    }, true);
+
+    // 8. Tối ưu hóa việc dọn dẹp lớp phủ vô hình & Tự động tua Video Ads
     function scanAndCleanPage() {
         if (!isSiteProtected || !document.body) return;
 
+        // Tự động bấm nút Bỏ qua quảng cáo video nếu có
         const skipButtons = document.querySelectorAll(
             '.jw-skip, .vjs-skip-button, .videoAdUiSkipButton, .ytp-ad-skip-button, .ytp-skip-ad-button, [class*="skip-ad"]'
         );
         skipButtons.forEach(btn => { if (btn.offsetParent !== null) btn.click(); });
 
+        // Tự động tua hết video ads
         const adPlayers = document.querySelectorAll('.jw-flag-ads video, .vjs-ad-playing video, .ad-showing video');
         adPlayers.forEach(video => {
             if (video.duration && isFinite(video.duration) && video.currentTime < video.duration) {
@@ -202,44 +243,49 @@
             }
         });
 
-        const vw = window.innerWidth;
-        const vh = window.innerHeight;
-        const mediaRects = Array.from(document.querySelectorAll('video, iframe')).map(el => el.getBoundingClientRect());
-
-        const candidates = document.querySelectorAll('div, a, section, ins, span');
-        candidates.forEach(el => {
+        // Chỉ tìm kiếm các phần tử nghi vấn là lớp phủ (thay vì toàn bộ DOM)
+        const suspects = document.querySelectorAll(
+            '[class*="overlay-ad"], [class*="ad-overlay"], [class*="backdrop-ad"], [id*="overlay-ad"], [id*="ad-backdrop"], [class*="popup-wrapper"]'
+        );
+        suspects.forEach(el => {
             if (el.dataset.pbChecked === 'safe' || el.id === 'pb-picker-banner') return;
-
-            const style = window.getComputedStyle(el);
-            if (style.position !== 'fixed' && style.position !== 'absolute') return;
-
-            const zIndex = parseInt(style.zIndex, 10);
-            const rect = el.getBoundingClientRect();
-            if (rect.width < 50 || rect.height < 50) return;
-
-            const coversViewport = (rect.width >= vw * 0.65 && rect.height >= vh * 0.65);
-            const coversVideo = mediaRects.some(mRect => {
-                if (mRect.width < 100 || mRect.height < 100) return false;
-                const overlapX = Math.max(0, Math.min(rect.right, mRect.right) - Math.max(rect.left, mRect.left));
-                const overlapY = Math.max(0, Math.min(rect.bottom, mRect.bottom) - Math.max(rect.top, mRect.top));
-                return (overlapX * overlapY) >= (mRect.width * mRect.height * 0.5);
-            });
-
-            if (!coversViewport && !coversVideo) return;
-
-            const opacity = parseFloat(style.opacity);
-            const bg = style.backgroundColor.replace(/\s+/g, '');
-            const isTransparentBg = (bg === 'transparent' || bg === 'rgba(0,0,0,0)');
-            const hasNoContent = el.innerText.trim().length === 0 && !el.querySelector('video, img, canvas, input, button');
-
-            if ((opacity < 0.12) || (isTransparentBg && hasNoContent && (zIndex > 99 || coversVideo))) {
-                el.remove();
-            } else {
+            // Không bao giờ xóa khung chứa ứng dụng chính
+            if (el.id === 'root' || el.id === 'app' || el.querySelector('article, nav, form, p, input, button')) {
                 el.dataset.pbChecked = 'safe';
+                return;
             }
+            const style = window.getComputedStyle(el);
+            if (style.position === 'fixed' || style.position === 'absolute') {
+                const opacity = parseFloat(style.opacity);
+                const bg = style.backgroundColor.replace(/\s+/g, '');
+                const isTransparent = (bg === 'transparent' || bg === 'rgba(0,0,0,0)');
+                if (opacity < 0.1 || isTransparent) {
+                    el.remove();
+                    return;
+                }
+            }
+            el.dataset.pbChecked = 'safe';
         });
     }
 
-    window.addEventListener('mousedown', scanAndCleanPage, true);
-    setInterval(scanAndCleanPage, 1200);
+    // Kiểm tra nhanh phần tử trực tiếp bị click (O(1)) để diệt lớp phủ tàng hình bẫy chuột
+    window.addEventListener('mousedown', (e) => {
+        if (!isSiteProtected) return;
+        const target = e.target;
+        if (target && target !== document.body && target !== document.documentElement && target.id !== 'pb-picker-banner') {
+            if (target.id === 'root' || target.id === 'app') return;
+            const style = window.getComputedStyle(target);
+            if (style.position === 'fixed' || style.position === 'absolute') {
+                const opacity = parseFloat(style.opacity);
+                const bg = style.backgroundColor.replace(/\s+/g, '');
+                const isTransparent = (bg === 'transparent' || bg === 'rgba(0,0,0,0)');
+                const hasNoText = target.innerText.trim().length === 0 && !target.querySelector('img, video, input, button, a, p, form, svg');
+                if (opacity < 0.05 || (isTransparent && hasNoText && parseInt(style.zIndex, 10) > 999)) {
+                    target.remove();
+                }
+            }
+        }
+    }, true);
+
+    setInterval(scanAndCleanPage, 1800);
 })();

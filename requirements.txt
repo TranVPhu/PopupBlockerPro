@@ -1,2 +1,2 @@
 # pip install pyinstaller
-# pyinstaller --onefile --noconsole --name "CaiDatChanPopup" installer.py
+# pyinstaller --onefile --noconsole --name "CaiDatChanPopup" --icon="icons/icon.ico" installer.py

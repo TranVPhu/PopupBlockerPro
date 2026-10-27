@@ -11,8 +11,14 @@ import urllib.request
 import tkinter as tk
 from tkinter import messagebox, filedialog
 
+def get_app_dir():
+    if getattr(sys, 'frozen', False):
+        return os.path.dirname(os.path.abspath(sys.executable))
+    return os.path.dirname(os.path.abspath(__file__))
+
 # Tự động dọn dẹp thư mục __pycache__ vì Chrome cấm thư mục có tiền tố '_' trong Extension
-_pycache_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "__pycache__")
+_app_dir = get_app_dir()
+_pycache_path = os.path.join(_app_dir, "__pycache__")
 if os.path.exists(_pycache_path):
     try:
         shutil.rmtree(_pycache_path)
@@ -129,21 +135,31 @@ class ExtensionInstallerGUI:
         self.root.configure(bg="#1e1e2e")
         self.root.resizable(False, False)
 
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        ico_path = os.path.join(base_dir, "icons", "icon.ico")
-        if os.path.isfile(ico_path):
-            try:
-                self.root.iconbitmap(ico_path)
-            except Exception:
-                pass
+        base_dir = get_app_dir()
+        candidate_dirs = [
+            base_dir,
+            os.path.abspath(os.path.join(base_dir, "..")),
+            os.path.join(base_dir, "PopupBlockerPro"),
+            os.path.abspath(os.path.join(base_dir, "..", "PopupBlockerPro"))
+        ]
+        default_ext_dir = ""
+        for c in candidate_dirs:
+            if os.path.isfile(os.path.join(c, "manifest.json")):
+                default_ext_dir = c
+                break
 
-        sub_dir = os.path.join(base_dir, "PopupBlockerPro")
-        if os.path.isfile(os.path.join(base_dir, "manifest.json")):
-            default_ext_dir = base_dir
-        elif os.path.isdir(sub_dir) and os.path.isfile(os.path.join(sub_dir, "manifest.json")):
-            default_ext_dir = sub_dir
-        else:
-            default_ext_dir = ""
+        ico_candidates = [
+            os.path.join(base_dir, "icons", "icon.ico"),
+            os.path.join(default_ext_dir, "icons", "icon.ico") if default_ext_dir else "",
+            os.path.join(getattr(sys, '_MEIPASS', ''), "icons", "icon.ico")
+        ]
+        for ip in ico_candidates:
+            if ip and os.path.isfile(ip):
+                try:
+                    self.root.iconbitmap(ip)
+                    break
+                except Exception:
+                    pass
 
         self.ext_dir = tk.StringVar(value=default_ext_dir)
         self.status_var = tk.StringVar(value="💡 Sẵn sàng. Bạn có thể cập nhật EasyList trước khi cài đặt.")
