@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            width: 270px;
+            font-family: system-ui, -apple-system, sans-serif;
+            padding: 14px;
+            margin: 0;
+            background: #1e1e2e;
+            color: #cdd6f4;
+            text-align: center;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .header img {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            box-shadow: 0 0 12px rgba(137, 180, 250, 0.4);
+        }
+
+        h3 {
+            margin: 0;
+            font-size: 15px;
+            color: #89b4fa;
+            font-weight: 700;
+        }
+
+        .stat {
+            background: #313244;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            font-size: 13px;
+        }
+
+        .count {
+            font-size: 22px;
+            font-weight: bold;
+            color: #a6e3a1;
+            display: block;
+        }
+
+        .domain-box {
+            background: #181825;
+            padding: 8px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            font-size: 12px;
+            color: #f9e2af;
+            word-break: break-all;
+        }
+
+        button {
+            width: 100%;
+            padding: 9px;
+            border: none;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-bottom: 6px;
+            font-size: 12px;
+        }
+
+        .btn-on {
+            background: #a6e3a1;
+            color: #11111b;
+        }
+
+        .btn-off {
+            background: #f38ba8;
+            color: #11111b;
+        }
+
+        .btn-wl-add {
+            background: #89b4fa;
+            color: #11111b;
+        }
+
+        .btn-wl-remove {
+            background: #fab387;
+            color: #11111b;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <img src="icons/icon48.png" alt="Popup Blocker Pro Logo">
+        <h3>Popup Blocker Pro</h3>
+    </div>
+    <div class="stat">
+        Đã tiêu diệt
+        <span class="count" id="count">0</span>
+        tab quảng cáo
+    </div>
+    <div class="domain-box" id="currentDomain">Đang kiểm tra tên miền...</div>
+    <button id="whitelistBtn" class="btn-wl-add">Thêm trang này vào Whitelist</button>
+    <button id="toggleBtn" class="btn-on">ĐANG BẬT TOÀN HỆ THỐNG</button>
+    <script src="popup.js"></script>
+</body>
+
+</html>

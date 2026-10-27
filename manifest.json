@@ -1,0 +1,67 @@
+{
+    "manifest_version": 3,
+    "name": "Ultimate Popup & Overlay Blocker Pro",
+    "version": "3.0.0",
+    "description": "Chặn toàn diện popup, video ads, xóa lớp phủ vô hình và hỗ trợ click chuột phải ẩn quảng cáo bất kỳ.",
+    "icons": {
+        "16": "icons/icon16.png",
+        "32": "icons/icon32.png",
+        "48": "icons/icon48.png",
+        "128": "icons/icon128.png"
+    },
+    "permissions": [
+        "tabs",
+        "webNavigation",
+        "storage",
+        "declarativeNetRequest",
+        "contextMenus"
+    ],
+    "host_permissions": [
+        "<all_urls>"
+    ],
+    "background": {
+        "service_worker": "background.js"
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "<all_urls>"
+            ],
+            "js": [
+                "bridge.js"
+            ],
+            "run_at": "document_start",
+            "world": "ISOLATED",
+            "all_frames": true
+        },
+        {
+            "matches": [
+                "<all_urls>"
+            ],
+            "js": [
+                "inject.js"
+            ],
+            "run_at": "document_start",
+            "world": "MAIN",
+            "all_frames": true
+        }
+    ],
+    "declarative_net_request": {
+        "rule_resources": [
+            {
+                "id": "popup_ad_rules",
+                "enabled": true,
+                "path": "rules.json"
+            }
+        ]
+    },
+    "action": {
+        "default_popup": "popup.html",
+        "default_title": "Ultimate Popup Blocker Pro",
+        "default_icon": {
+            "16": "icons/icon16.png",
+            "32": "icons/icon32.png",
+            "48": "icons/icon48.png"
+        }
+    }
+}
