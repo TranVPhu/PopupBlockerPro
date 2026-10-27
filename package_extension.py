@@ -29,11 +29,13 @@ def create_store_package():
     include_files = [
         "manifest.json",
         "background.js",
+        "shared.js",
         "bridge.js",
         "inject.js",
         "popup.html",
         "popup.js",
-        "rules.json"
+        "rules.json",
+        "popup_domains.json"
     ]
     include_dirs = [
         "icons"

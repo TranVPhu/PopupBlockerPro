@@ -2,14 +2,13 @@ import sys
 sys.dont_write_bytecode = True
 
 import os
-import re
-import json
 import shutil
 import threading
 import subprocess
-import urllib.request
 import tkinter as tk
 from tkinter import messagebox, filedialog
+
+from filter_compiler import compile_filters
 
 def get_app_dir():
     if getattr(sys, 'frozen', False):
@@ -25,19 +24,14 @@ if os.path.exists(_pycache_path):
     except Exception:
         pass
 
-# Danh sách nguồn lọc quảng cáo quốc tế (EasyList) và Việt Nam (ABPVN)
-FILTER_LIST_URLS = [
-    "https://easylist.to/easylist/easylist.txt",
-    "https://raw.githubusercontent.com/abpvn/abpvn/master/filter/abpvn.txt"
-]
-DOMAIN_RULE_REGEX = re.compile(r"^\|\|([a-z0-9.-]+\.[a-z]{2,})\^(\$third-party)?$")
-
-# Bảng định danh các trình duyệt nhân Chromium phổ biến
+# Bảng định danh các trình duyệt nhân Chromium phổ biến.
+# supports_load_flag=False: trình duyệt đã bỏ cờ --load-extension (Google Chrome bản chính thức từ v137)
 CHROMIUM_BROWSERS = [
     {
         "name": "Google Chrome",
         "exe": "chrome.exe",
         "ext_url": "chrome://extensions",
+        "supports_load_flag": False,
         "paths": [
             r"C:\Program Files\Google\Chrome\Application\chrome.exe",
             r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
@@ -103,7 +97,12 @@ def scan_installed_browsers():
         for p in b["paths"]:
             if os.path.isfile(p) and p.lower() not in seen_paths:
                 seen_paths.add(p.lower())
-                detected.append({"name": b["name"], "path": p, "ext_url": b["ext_url"]})
+                detected.append({
+                    "name": b["name"],
+                    "path": p,
+                    "ext_url": b["ext_url"],
+                    "supports_load_flag": b.get("supports_load_flag", True)
+                })
                 break
 
     if sys.platform == "win32":
@@ -119,7 +118,8 @@ def scan_installed_browsers():
                         detected.append({
                             "name": b["name"] + " (Registry)",
                             "path": exe_path,
-                            "ext_url": b["ext_url"]
+                            "ext_url": b["ext_url"],
+                            "supports_load_flag": b.get("supports_load_flag", True)
                         })
             except OSError:
                 continue
@@ -130,7 +130,7 @@ def scan_installed_browsers():
 class ExtensionInstallerGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title("Trình Quản Lý & Cài Đặt Extension Chặn Quảng Cáo V3.0")
+        self.root.title("Trình Quản Lý & Cài Đặt Extension Chặn Quảng Cáo")
         self.root.geometry("700x560")
         self.root.configure(bg="#1e1e2e")
         self.root.resizable(False, False)
@@ -171,7 +171,7 @@ class ExtensionInstallerGUI:
     def setup_ui(self):
         # Tiêu đề
         tk.Label(
-            self.root, text="🛡️ TRÌNH CÀI ĐẶT & CẬP NHẬT BỘ LỌC QUẢNG CÁO V3.0",
+            self.root, text="🛡️ TRÌNH CÀI ĐẶT & CẬP NHẬT BỘ LỌC QUẢNG CÁO",
             font=("Segoe UI", 14, "bold"), bg="#1e1e2e", fg="#89b4fa"
         ).pack(pady=(14, 4))
 
@@ -263,103 +263,23 @@ class ExtensionInstallerGUI:
             messagebox.showerror("Lỗi", "Vui lòng chọn thư mục PopupBlockerPro hợp lệ trước khi cập nhật!")
             return
 
-        rules_file = os.path.join(ext_path, "rules.json")
         self.update_btn.config(state="disabled", text="⏳ Đang tải dữ liệu...")
         self.status_var.set("⏳ Đang kết nối máy chủ EasyList & ABPVN...")
 
         # Chạy trong luồng riêng để giao diện không bị treo
-        threading.Thread(target=self._download_and_compile_worker, args=(rules_file,), daemon=True).start()
+        threading.Thread(target=self._download_and_compile_worker, args=(ext_path,), daemon=True).start()
 
-    def _download_and_compile_worker(self, output_path):
-        blocked_domains = set([
-            "popads.net", "popcash.net", "propellerads.com", "adsterra.com",
-            "exoclick.com", "juicyads.com", "clickadu.com", "mgid.com",
-            "taboola.com", "outbrain.com", "galaksion.com", "bidgear.com"
-        ])
-        max_domains = 15000
-
-        for idx, url in enumerate(FILTER_LIST_URLS, start=1):
-            try:
-                self.root.after(0, lambda u=url, i=idx: self.status_var.set(f"⏳ Đang tải nguồn ({i}/{len(FILTER_LIST_URLS)})..."))
-                req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-                with urllib.request.urlopen(req, timeout=20) as response:
-                    lines = response.read().decode('utf-8', errors='ignore').splitlines()
-                    for line in lines:
-                        line = line.strip()
-                        if not line or line.startswith(('!', '[', '@@')) or '##' in line or '#@#' in line:
-                            continue
-                        match = DOMAIN_RULE_REGEX.match(line)
-                        if match:
-                            blocked_domains.add(match.group(1))
-                            if len(blocked_domains) >= max_domains:
-                                break
-            except Exception as e:
-                print(f"Không thể tải {url}: {e}")
-
-        domain_list = sorted(list(blocked_domains))
-
-        # Các quy tắc gốc chặn quảng cáo Video (VAST/VMAP/IMA SDK) & Banner đường dẫn
-        rules = [
-            {
-                "id": 1,
-                "priority": 2,
-                "action": {"type": "block"},
-                "condition": {
-                    "urlFilter": "||imasdk.googleapis.com/js/sdkloader/ima3.js",
-                    "resourceTypes": ["script"]
-                }
-            },
-            {
-                "id": 2,
-                "priority": 2,
-                "action": {"type": "block"},
-                "condition": {
-                    "urlFilter": "*vast*.xml*",
-                    "resourceTypes": ["xmlhttprequest", "media", "other"]
-                }
-            },
-            {
-                "id": 3,
-                "priority": 2,
-                "action": {"type": "block"},
-                "condition": {
-                    "urlFilter": "*vmap*.xml*",
-                    "resourceTypes": ["xmlhttprequest", "media", "other"]
-                }
-            },
-            {
-                "id": 4,
-                "priority": 2,
-                "action": {"type": "block"},
-                "condition": {
-                    "urlFilter": "*preroll*",
-                    "resourceTypes": ["media", "xmlhttprequest", "script"]
-                }
-            }
-        ]
-
-        # Chia thành cụm 500 tên miền/rule để tối ưu tốc độ khớp lệnh của Chromium
-        chunk_size = 500
-        rule_id = 10
-        for i in range(0, len(domain_list), chunk_size):
-            chunk = domain_list[i:i + chunk_size]
-            rules.append({
-                "id": rule_id,
-                "priority": 1,
-                "action": {"type": "block"},
-                "condition": {
-                    "requestDomains": chunk,
-                    "resourceTypes": ["script", "sub_frame", "image", "xmlhttprequest", "media"]
-                }
-            })
-            rule_id += 1
+    def _download_and_compile_worker(self, ext_path):
+        def on_progress(idx, total, url, error):
+            if error:
+                print(f"Không thể tải {url}: {error}")
+            self.root.after(0, lambda: self.status_var.set(f"⏳ Đã xử lý nguồn ({idx}/{total})..."))
 
         try:
-            with open(output_path, "w", encoding="utf-8") as f:
-                json.dump(rules, f, indent=2)
-            self.root.after(0, lambda: self._on_update_done(True, len(domain_list), len(rules)))
+            stats = compile_filters(ext_path, progress=on_progress)
+            self.root.after(0, lambda: self._on_update_done(True, stats["domain_count"], stats["rule_count"]))
         except Exception as err:
-            self.root.after(0, lambda: self._on_update_done(False, 0, 0, str(err)))
+            self.root.after(0, lambda e=str(err): self._on_update_done(False, 0, 0, e))
 
     def _on_update_done(self, success, domain_count, rule_count, err_msg=""):
         self.update_btn.config(state="normal", text="🌐 Tải & Cập nhật EasyList vào rules.json")
@@ -371,7 +291,7 @@ class ExtensionInstallerGUI:
                 f"Nếu trình duyệt đang mở, hãy bấm nút Tải lại (Reload) tiện ích trong trang quản lý Extension."
             )
         else:
-            self.status_var.set("❌ Lỗi khi ghi file rules.json!")
+            self.status_var.set("❌ Cập nhật thất bại, đã giữ nguyên rules.json cũ!")
             messagebox.showerror("Lỗi cập nhật", f"Không thể cập nhật rules.json:\n{err_msg}")
 
     def refresh_browsers(self):
@@ -426,6 +346,9 @@ class ExtensionInstallerGUI:
             return
 
         desktop = os.path.join(os.path.expanduser("~"), "Desktop")
+        unsupported = [b for b in selected if not b.get("supports_load_flag", True)]
+        selected = [b for b in selected if b.get("supports_load_flag", True)]
+
         for b in selected:
             try:
                 subprocess.Popen([b["path"], f"--load-extension={ext_path}"])
@@ -440,10 +363,19 @@ class ExtensionInstallerGUI:
             except Exception:
                 pass
 
-        messagebox.showinfo(
-            "Đã kích hoạt thành công!",
-            f"Đã nạp trực tiếp Extension V3.0 vào {len(selected)} trình duyệt và tạo Shortcut ngoài Desktop!"
-        )
+        message = ""
+        if selected:
+            message += (
+                f"Đã nạp trực tiếp Extension vào {len(selected)} trình duyệt và tạo Shortcut ngoài Desktop!\n"
+                f"Lưu ý: nếu trình duyệt đang mở sẵn, hãy đóng hẳn rồi chạy lại bằng Shortcut thì Extension mới được nạp.\n\n"
+            )
+        if unsupported:
+            names = ", ".join(b["name"] for b in unsupported)
+            message += (
+                f"{names} không còn hỗ trợ nạp Extension qua dòng lệnh (--load-extension).\n"
+                f"Hãy dùng nút \"📌 Mở trang Cài đặt cố định\" để cài vĩnh viễn bằng Load unpacked."
+            )
+        messagebox.showinfo("Kết quả kích hoạt", message.strip())
 
     def open_extensions_page(self):
         ext_path, selected = self.validate_selection()

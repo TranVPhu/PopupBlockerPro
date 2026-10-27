@@ -3,7 +3,6 @@
     const originalClick = HTMLElement.prototype.click;
 
     // Kênh handshake bảo mật riêng giữa inject.js (MAIN) và bridge.js (ISOLATED)
-    // Không dùng thuộc tính DOM mở (dataset) để tránh bị script trang web sửa đổi
     let isSiteProtected = true;
     const sessionSecret = (window.crypto && window.crypto.randomUUID)
         ? window.crypto.randomUUID()
@@ -21,50 +20,183 @@
         return isSiteProtected;
     }
 
-    // 1. Ghi đè & Khóa window.open (chống ghi đè từ webpage)
-    Object.defineProperty(window, 'open', {
-        configurable: false,
-        writable: false,
-        value: function (url, target, features) {
+    // Báo cho bridge.js chuyển tiếp tới background để cập nhật bộ đếm & badge
+    function reportBlocked() {
+        window.dispatchEvent(new CustomEvent('__pb_blocked_' + sessionSecret));
+    }
+
+    // Biến quản lý số lượng popup mở trong cùng một cử chỉ click (chống Popup Flooding) - dùng chung cho mọi frame
+    let lastPopupTimestamp = 0;
+
+    // 1. Ghi đè & Kiểm soát window.open thông minh (Học hỏi từ uBlock Origin)
+    function createGuardedOpen(targetWin, nativeOpen) {
+        return function (url, target, features) {
             if (!isProtectionActive()) {
-                return originalWindowOpen.apply(window, arguments);
+                return nativeOpen.apply(targetWin, arguments);
             }
-            console.log('[Popup Blocker Pro] Đã chặn window.open:', url);
-            return {
-                closed: false,
-                focus: function () { },
-                blur: function () { },
-                close: function () { },
-                document: { write: function () { }, open: function () { }, close: function () { } }
-            };
+
+            // Kiểm tra cử chỉ người dùng qua navigator.userActivation (chuẩn Chromium)
+            const hasUserGesture = navigator.userActivation && navigator.userActivation.isActive;
+            const now = Date.now();
+
+            // Nếu KHÔNG có cử chỉ bấm chuột từ người dùng -> Chặn 100% (Popunder, Timer popup)
+            if (!hasUserGesture) {
+                console.log('[Popup Blocker Pro] Đã chặn popup tự kích hoạt (Không có user gesture):', url);
+                reportBlocked();
+                return createDummyWindow();
+            }
+
+            // Chống Popup Flood: Người dùng bấm 1 cái nhưng trang web gọi window.open hàng loạt (>= 2 lần trong 800ms)
+            if (now - lastPopupTimestamp < 800) {
+                console.log('[Popup Blocker Pro] Đã chặn popup liên tiếp (Popup Flood):', url);
+                reportBlocked();
+                return createDummyWindow();
+            }
+
+            // Chặn các URL nguy hiểm hoặc rác
+            if (url) {
+                const trimmedUrl = String(url).trim().toLowerCase();
+                if (trimmedUrl.startsWith('javascript:') || trimmedUrl === '#' || trimmedUrl === 'data:text/html') {
+                    console.log('[Popup Blocker Pro] Đã chặn popup URL đáng ngờ:', url);
+                    reportBlocked();
+                    return createDummyWindow();
+                }
+            }
+
+            // Ghi nhận thời điểm mở popup hợp lệ (OAuth Google/Facebook, Print, Xem trước)
+            lastPopupTimestamp = now;
+
+            // Chống chiêu trò Popunder (làm mờ popup ngay sau khi mở)
+            try {
+                const realWin = nativeOpen.apply(targetWin, arguments);
+                if (realWin) {
+                    try {
+                        realWin.focus();
+                    } catch (_) { }
+                }
+                return realWin;
+            } catch (err) {
+                return createDummyWindow();
+            }
+        };
+    }
+
+    function lockWindowOpen(win, nativeOpen) {
+        Object.defineProperty(win, 'open', {
+            configurable: false,
+            writable: false,
+            value: createGuardedOpen(win, nativeOpen)
+        });
+    }
+
+    lockWindowOpen(window, originalWindowOpen);
+
+    // 1b. Chống lách qua iframe rỗng (about:blank): iframe.contentWindow.open(...) dùng window.open gốc của frame con.
+    // Content script có thể chưa kịp chạy trong frame vừa tạo, nên khóa window.open của frame con ngay khi trang truy cập nó.
+    function guardFrameWindow(win) {
+        if (!win || win === window) return;
+        try {
+            const nativeOpen = win.open; // Frame khác origin sẽ ném SecurityError -> bỏ qua
+            lockWindowOpen(win, nativeOpen); // Đã khóa rồi (non-configurable) sẽ ném TypeError -> bỏ qua
+        } catch (_) { }
+    }
+
+    [window.HTMLIFrameElement, window.HTMLFrameElement, window.HTMLObjectElement].forEach(function (Ctor) {
+        if (!Ctor) return;
+        const winDesc = Object.getOwnPropertyDescriptor(Ctor.prototype, 'contentWindow');
+        if (winDesc && winDesc.get) {
+            Object.defineProperty(Ctor.prototype, 'contentWindow', {
+                configurable: winDesc.configurable,
+                enumerable: winDesc.enumerable,
+                get: function () {
+                    const win = winDesc.get.call(this);
+                    guardFrameWindow(win);
+                    return win;
+                }
+            });
+        }
+        const docDesc = Object.getOwnPropertyDescriptor(Ctor.prototype, 'contentDocument');
+        if (docDesc && docDesc.get) {
+            Object.defineProperty(Ctor.prototype, 'contentDocument', {
+                configurable: docDesc.configurable,
+                enumerable: docDesc.enumerable,
+                get: function () {
+                    const doc = docDesc.get.call(this);
+                    if (doc) guardFrameWindow(doc.defaultView);
+                    return doc;
+                }
+            });
         }
     });
 
-    // 2. Chặn & Khóa tự động gọi .click() vào thẻ <a> ẩn bằng JS (chống xóa/ghi đè prototype)
+    function createDummyWindow() {
+        return {
+            closed: false,
+            focus: function () { },
+            blur: function () { },
+            close: function () { },
+            postMessage: function () { },
+            location: { href: '', replace: function () { }, reload: function () { } },
+            document: { write: function () { }, open: function () { }, close: function () { } }
+        };
+    }
+
+    // 2. Chặn tự động click vào thẻ <a> ẩn NHƯNG không chặn tải file blob/data/download
     Object.defineProperty(HTMLElement.prototype, 'click', {
         configurable: false,
         writable: false,
         value: function () {
-            if (isProtectionActive() && this.tagName === 'A' && (this.target === '_blank' || !this.isConnected)) {
-                console.log('[Popup Blocker Pro] Đã chặn JS tự động click:', this.href);
-                return;
+            if (isProtectionActive() && this.tagName === 'A') {
+                const href = this.getAttribute('href') || '';
+                const isDownload = this.hasAttribute('download') ||
+                    href.startsWith('blob:') ||
+                    href.startsWith('data:');
+
+                // Cho phép 100% các hành vi xuất/tải file từ web app (Google Docs, Canvas, Excel, PDF...)
+                if (isDownload) {
+                    return originalClick.apply(this, arguments);
+                }
+
+                const hasUserGesture = navigator.userActivation && navigator.userActivation.isActive;
+                // Nếu JS tự động bấm vào link mở tab mới mà không có tương tác người dùng -> Chặn!
+                if (!hasUserGesture && (this.target === '_blank' || !this.isConnected)) {
+                    console.log('[Popup Blocker Pro] Đã chặn JS tự động click mở tab ẩn:', href);
+                    reportBlocked();
+                    return;
+                }
             }
             return originalClick.apply(this, arguments);
         }
     });
 
-    // 3. Chặn sự kiện click giả mạo hoặc link trống mở tab mới
+    // 3. Chặn sự kiện click giả mạo & Chống Reverse Tabnabbing (Tab Hijacking)
     window.addEventListener('click', function (e) {
         if (!isProtectionActive()) return;
 
+        const anchor = e.target instanceof Element ? e.target.closest('a') : null;
+        if (!anchor) return;
+
+        // Chỉ chặn click giả lập (dispatchEvent) nhắm vào link mở tab mới.
+        // Các click giả lập khác (input.click() mở hộp chọn file, dropdown của React/Vue...) phải được giữ nguyên.
         if (!e.isTrusted) {
-            e.stopImmediatePropagation();
-            e.preventDefault();
-            return false;
+            if (anchor.target === '_blank') {
+                e.stopImmediatePropagation();
+                e.preventDefault();
+                reportBlocked();
+            }
+            return;
         }
 
-        const anchor = e.target.closest('a');
-        if (anchor && anchor.target === '_blank' && anchor.href) {
+        // Ngăn chặn Tab Hijacking: Ép buộc thêm rel="noopener noreferrer" cho mọi link target="_blank"
+        if (anchor.target === '_blank') {
+            const rel = (anchor.getAttribute('rel') || '').toLowerCase();
+            if (!rel.includes('noopener')) {
+                anchor.setAttribute('rel', (rel + ' noopener noreferrer').trim());
+            }
+        }
+
+        // Chặn link target="_blank" có href là javascript: hoặc #
+        if (anchor.target === '_blank' && anchor.href) {
             try {
                 const targetUrl = new URL(anchor.href, window.location.href);
                 if (targetUrl.protocol === 'javascript:' || anchor.getAttribute('href') === '#') {
@@ -75,11 +207,12 @@
         }
     }, true);
 
-    // 4. Cơ chế vô hiệu hóa thư viện phát hiện chặn quảng cáo (Anti-Adblock Defuser)
+    // 4. Cơ chế vô hiệu hóa thư viện phát hiện chặn quảng cáo nâng cao (Anti-Adblock Defusers)
     try {
         window.canRunAds = true;
         window.isAdBlockActive = false;
         window.adblockEnabled = false;
+        window.google_ad_status = 1;
 
         const fakeFab = {
             check: function () { return false; },
@@ -104,20 +237,26 @@
     } catch (e) { }
 
     // 5. Tự động giải phóng thanh cuộn nếu website cố tình khóa scroll khi phát hiện chặn quảng cáo
-    window.addEventListener('DOMContentLoaded', function () {
-        if (!isProtectionActive()) return;
-        const unlockScroll = () => {
-            try {
-                if (document.body && (getComputedStyle(document.body).overflow === 'hidden' || document.documentElement.style.overflow === 'hidden')) {
-                    const hasAdBlockOverlay = document.querySelector('[class*="adblock"], [id*="adblock"], [class*="overlay-ad"]');
-                    if (hasAdBlockOverlay) {
-                        document.body.style.setProperty('overflow', 'auto', 'important');
-                        document.documentElement.style.setProperty('overflow', 'auto', 'important');
-                    }
+    const unlockScroll = () => {
+        try {
+            if (!isProtectionActive()) return;
+            const body = document.body;
+            const docEl = document.documentElement;
+            if (body && (getComputedStyle(body).overflow === 'hidden' || getComputedStyle(docEl).overflow === 'hidden')) {
+                const hasAdBlockOverlay = document.querySelector('[class*="adblock"], [id*="adblock"], [class*="overlay-ad"]');
+                if (hasAdBlockOverlay) {
+                    body.style.setProperty('overflow', 'auto', 'important');
+                    docEl.style.setProperty('overflow', 'auto', 'important');
                 }
-            } catch (err) { }
-        };
-        setTimeout(unlockScroll, 800);
-        setTimeout(unlockScroll, 2000);
-    });
+            }
+        } catch (err) { }
+    };
+
+    if (document.readyState === 'loading') {
+        window.addEventListener('DOMContentLoaded', unlockScroll);
+    } else {
+        unlockScroll();
+    }
+    setTimeout(unlockScroll, 1000);
+    setTimeout(unlockScroll, 2500);
 })();
