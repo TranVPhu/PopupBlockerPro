@@ -14,6 +14,8 @@
         "webNavigation",
         "storage",
         "declarativeNetRequest",
+        "declarativeNetRequestFeedback",
+        "alarms",
         "contextMenus"
     ],
     "host_permissions": [
@@ -29,6 +31,7 @@
             ],
             "js": [
                 "shared.js",
+                "cosmetic_rules.js",
                 "bridge.js"
             ],
             "run_at": "document_start",

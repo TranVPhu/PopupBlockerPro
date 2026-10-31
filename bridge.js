@@ -8,7 +8,7 @@
 
     const currentHost = window.location.hostname.replace(/^www\./, '');
 
-    const COSMETIC_CSS = `
+    const GENERIC_COSMETIC_CSS = `
     /* 1. Quảng cáo banner & khung popup thông thường */
     .ads-banner, .ad-banner, .banner-ads, .banner-quangcao,
     .ad-container, .ads-container, .ad-wrapper, .ads-wrapper,
@@ -37,6 +37,32 @@
       pointer-events: none !important;
     }
   `;
+
+    // Hộp thoại đòi tắt chặn quảng cáo (đánh dấu bởi hideAntiAdblockDialogs) & mở khóa cuộn trang
+    const DIALOG_CSS = `
+    [data-pb-hidden] { display: none !important; }
+    html[data-pb-unlock], html[data-pb-unlock] > body { overflow-y: auto !important; }
+  `;
+
+    // Áp bộ lọc ABPVN (##) cho tên miền hiện tại và các tên miền cha, trừ các ngoại lệ (#@#).
+    // Mỗi selector là một luật CSS riêng: một selector không hợp lệ chỉ làm hỏng chính nó.
+    function buildListCosmeticCss() {
+        const parts = currentHost.split('.');
+        const hosts = parts.map((_, i) => parts.slice(i).join('.'));
+        const unhide = new Set(hosts.flatMap(host => PB_COSMETIC.unhide[host] || []));
+        // Quy tắc @@...$generichide: trang này phát hiện hoặc bị hỏng bởi các bộ lọc chung
+        const skipGeneric = hosts.some(host => PB_COSMETIC.generichide.includes(host));
+        const generic = skipGeneric
+            ? []
+            : PB_COSMETIC.generic.filter(rule => !rule.x.some(host => hosts.includes(host))).map(rule => rule.s);
+        const siteRules = hosts.flatMap(host => PB_COSMETIC.sites[host] || []);
+        return (skipGeneric ? '' : GENERIC_COSMETIC_CSS) + [...generic, ...siteRules]
+            .filter(selector => !unhide.has(selector))
+            .map(selector => `${selector} { display: none !important; }`)
+            .join('\n');
+    }
+
+    const BASE_COSMETIC_CSS = DIALOG_CSS + buildListCosmeticCss();
 
     // 1. Lưu lại phần tử vừa được người dùng click chuột phải
     document.addEventListener('contextmenu', (e) => {
@@ -103,7 +129,7 @@
                 const customCss = siteSelectors.length > 0
                     ? `\n${siteSelectors.join(', ')} { display: none !important; visibility: hidden !important; }`
                     : '';
-                styleEl.textContent = COSMETIC_CSS + customCss;
+                styleEl.textContent = BASE_COSMETIC_CSS + customCss;
             }
         } else if (styleEl) {
             styleEl.remove();
@@ -288,14 +314,12 @@
     });
 
     function syncProtectionState() {
-        chrome.storage.local.get(['enabled', 'whitelist', 'customHidden'], (res) => {
+        chrome.storage.local.get(['enabled', 'whitelist', 'tempAllow', 'customHidden'], (res) => {
             const globalEnabled = res.enabled !== undefined ? res.enabled : true;
             const whitelist = res.whitelist || PB_DEFAULT_WHITELIST;
-            const isWhitelisted = whitelist.some(
-                domain => currentHost === domain || currentHost.endsWith('.' + domain)
-            );
+            const isAllowed = pbHostInList(currentHost, [...whitelist, ...pbActiveTempAllow(res.tempAllow)]);
 
-            isSiteProtected = globalEnabled && !isWhitelisted;
+            isSiteProtected = globalEnabled && !isAllowed;
             if (currentSessionToken) {
                 window.dispatchEvent(new CustomEvent('__pb_sync_' + currentSessionToken, {
                     detail: { active: isSiteProtected }
@@ -312,7 +336,7 @@
     // Chỉ đồng bộ lại khi cấu hình thay đổi (bỏ qua blockedCount tăng liên tục ở mọi frame của mọi tab)
     chrome.storage.onChanged.addListener((changes, area) => {
         if (area !== 'local') return;
-        if (changes.enabled || changes.whitelist || changes.customHidden) syncProtectionState();
+        if (changes.enabled || changes.whitelist || changes.tempAllow || changes.customHidden) syncProtectionState();
     });
 
     // 8. Theo dõi cử chỉ click chuột tin cậy của người dùng (tránh đóng nhầm tab hợp lệ)
@@ -382,6 +406,70 @@
         });
     }
 
+    // Nhận diện hộp thoại đòi tắt chặn quảng cáo theo NỘI DUNG, vì mỗi trang đặt tên class khác nhau (VD: ReactModal của tinhte.vn)
+    const ANTI_ADBLOCK_TEXT = /(trình|phần mềm|tiện ích|công cụ|ứng dụng)\s+chặn\s+quảng\s+cáo|tắt\s+(bộ\s+)?chặn\s+quảng\s+cáo|cho\s+phép\s+(hiện\s+|hiển\s+thị\s+)?quảng\s+cáo|\bad[\s-]?block/i;
+    // Hộp thoại thật chỉ có vài câu. Dài hơn thì có thể là bài viết/khung ứng dụng nhắc tới cụm từ này -> không đụng vào
+    const MAX_DIALOG_TEXT = 1000;
+
+    // Tìm phần tử nổi ngoài cùng bao quanh đoạn chữ (lớp nền của hộp thoại). Chữ nằm trong bài viết thường sẽ không có
+    function findFloatingAncestor(el) {
+        let floating = null;
+        for (let cur = el; cur && cur !== document.body && cur !== document.documentElement; cur = cur.parentElement) {
+            const style = window.getComputedStyle(cur);
+            if (style.position === 'fixed' || (style.position === 'absolute' && parseInt(style.zIndex, 10) >= 1000)) {
+                floating = cur;
+            }
+        }
+        return floating;
+    }
+
+    // Lớp nền tối tách rời khỏi hộp thoại (kiểu Bootstrap .modal-backdrop) phải được ẩn cùng
+    function hideDetachedBackdrops() {
+        Array.from(document.body.children).forEach((el) => {
+            if (el.children.length > 0 || el.tagName === 'CANVAS' || el.hasAttribute('data-pb-hidden')) return;
+            const style = window.getComputedStyle(el);
+            const bg = style.backgroundColor.replace(/\s+/g, '');
+            if (style.position !== 'fixed' || bg === 'transparent' || bg === 'rgba(0,0,0,0)') return;
+            const rect = el.getBoundingClientRect();
+            if (rect.width >= window.innerWidth * 0.9 && rect.height >= window.innerHeight * 0.9) {
+                el.setAttribute('data-pb-hidden', '');
+            }
+        });
+    }
+
+    function hideAntiAdblockDialogs(root) {
+        if (!isSiteProtected || !root) return;
+        const textNodes = [];
+        if (root.nodeType === Node.TEXT_NODE) {
+            textNodes.push(root);
+        } else if (root.nodeType === Node.ELEMENT_NODE) {
+            const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+            while (walker.nextNode()) textNodes.push(walker.currentNode);
+        }
+
+        textNodes.forEach((textNode) => {
+            const parent = textNode.parentElement;
+            if (!parent || !ANTI_ADBLOCK_TEXT.test(textNode.nodeValue.normalize('NFC'))) return;
+            if (parent.closest('[data-pb-hidden], script, style, noscript')) return;
+
+            const dialog = findFloatingAncestor(parent);
+            if (!dialog || dialog.textContent.length > MAX_DIALOG_TEXT) return;
+
+            // Nút/thanh nhỏ (VD: "Hướng dẫn tắt Adblock" của vnexpress) không khóa cuộn trang. Kích thước 0 là hộp thoại chưa hiện -> vẫn mở khóa
+            const rect = dialog.getBoundingClientRect();
+            const area = rect.width * rect.height;
+            if (area === 0 || area >= window.innerWidth * window.innerHeight * 0.25) {
+                document.documentElement.setAttribute('data-pb-unlock', '');
+            }
+
+            // Ẩn bằng CSS chứ không xóa node: xóa node do React quản lý có thể làm sập cả trang khi React cập nhật lại
+            dialog.setAttribute('data-pb-hidden', '');
+            hideDetachedBackdrops();
+            setTimeout(hideDetachedBackdrops, 300);
+            chrome.runtime.sendMessage({ action: 'ad_blocked' }).catch(() => { });
+        });
+    }
+
     // Các thẻ hay được làm trong suốt có chủ đích (input file ẩn đè lên nút, canvas bản đồ, video...) -> không bao giờ xóa
     const OVERLAY_SAFE_TAGS = new Set(['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON', 'LABEL', 'VIDEO', 'AUDIO', 'CANVAS', 'IMG', 'SVG', 'A']);
 
@@ -412,24 +500,29 @@
 
     // 10. Thay thế setInterval bằng MutationObserver có debounce (Tiết kiệm CPU & Pin học từ uBO)
     let scanTimeout = null;
-    const domObserver = new MutationObserver(() => {
+    const domObserver = new MutationObserver((mutations) => {
         if (!isSiteProtected) return;
+        // Kiểm tra ngay, không debounce: callback chạy trước khi trình duyệt vẽ nên hộp thoại không kịp nháy lên màn hình
+        mutations.forEach((m) => m.addedNodes.forEach(hideAntiAdblockDialogs));
         if (scanTimeout) clearTimeout(scanTimeout);
         scanTimeout = setTimeout(() => {
             scanAndCleanPage();
         }, 300);
     });
 
+    function startObserving() {
+        domObserver.observe(document.body, { childList: true, subtree: true });
+        scanAndCleanPage();
+        // Hộp thoại đã có sẵn trong HTML trước khi observer bắt đầu theo dõi
+        hideAntiAdblockDialogs(document.body);
+    }
+
     function initObserver() {
         if (document.body) {
-            domObserver.observe(document.body, { childList: true, subtree: true });
-            scanAndCleanPage();
+            startObserving();
         } else {
             document.addEventListener('DOMContentLoaded', () => {
-                if (document.body) {
-                    domObserver.observe(document.body, { childList: true, subtree: true });
-                    scanAndCleanPage();
-                }
+                if (document.body) startObserving();
             });
         }
     }

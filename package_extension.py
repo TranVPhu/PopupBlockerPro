@@ -34,11 +34,15 @@ def create_store_package():
         "inject.js",
         "popup.html",
         "popup.js",
+        "qr.html",
+        "qr.js",
         "rules.json",
-        "popup_domains.json"
+        "popup_domains.json",
+        "cosmetic_rules.js"
     ]
     include_dirs = [
-        "icons"
+        "icons",
+        "vendor"
     ]
 
     print(f"📦 Đang đóng gói tệp {zip_name} cho Chrome Web Store / Edge Add-ons...")
@@ -58,7 +62,7 @@ def create_store_package():
                             full_path = os.path.join(root, file)
                             rel_path = os.path.relpath(full_path, base_dir)
                             zf.write(full_path, arcname=rel_path)
-                            print(f"  + Đã thêm icon: {rel_path}")
+                            print(f"  + Đã thêm: {rel_path}")
 
     zip_size_kb = os.path.getsize(zip_path) / 1024
     print(f"\n✅ Đóng gói hoàn tất thành công!")

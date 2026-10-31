@@ -29,3 +29,5 @@ if __name__ == "__main__":
         f"({stats['domain_count']} tên miền, trong đó {stats['third_party_count']} chỉ chặn third-party) vào rules.json"
     )
     print(f"🪟 Đã ghi {stats['popup_count']} tên miền popup quảng cáo vào popup_domains.json")
+    print(f"✅ Đã áp dụng {stats['exception_count']} quy tắc ngoại lệ (@@) để tránh hỏng trang")
+    print(f"🧹 Đã ghi {stats['cosmetic_count']} quy tắc ẩn phần tử (##) của ABPVN vào cosmetic_rules.js")

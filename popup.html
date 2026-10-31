@@ -121,6 +121,10 @@
             padding: 7px 4px;
         }
 
+        .btn-tool-wide {
+            grid-column: 1 / -1;
+        }
+
         .btn-on {
             background: #a6e3a1;
             color: #11111b;
@@ -142,6 +146,16 @@
 
         .btn-wl-remove {
             background: #fab387;
+            color: #11111b;
+        }
+
+        .btn-pause {
+            background: #f9e2af;
+            color: #11111b;
+        }
+
+        .btn-resume {
+            background: #a6e3a1;
             color: #11111b;
         }
 
@@ -176,8 +190,10 @@
     <div class="tools-grid">
         <button id="pickerBtn" class="btn-tool" title="Chọn phần tử bằng chuột để ẩn vĩnh viễn">🎯 Rà chọn ẩn</button>
         <button id="zapperBtn" class="btn-tool" title="Click xóa nhanh phần tử ngay lập tức (không lưu)">⚡ Tẩy nhanh</button>
+        <button id="qrBtn" class="btn-tool btn-tool-wide" title="Tạo mã QR cho đường link của trang này">📱 Tạo mã QR cho trang này</button>
     </div>
 
+    <button id="pauseBtn" class="btn-pause"></button>
     <button id="resetBtn" class="btn-reset">♻️ Khôi phục phần tử đã ẩn</button>
     <button id="whitelistBtn" class="btn-wl-add">Cho phép trang này (Whitelist)</button>
     <button id="toggleBtn" class="btn-on">ĐANG BẬT TOÀN HỆ THỐNG</button>

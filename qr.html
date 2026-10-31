@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Tạo mã QR</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 280px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            padding: 14px;
+            margin: 0 auto;
+            background: #1e1e2e;
+            color: #cdd6f4;
+            text-align: center;
+        }
+
+        html {
+            background: #1e1e2e;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        h3 {
+            flex: 1;
+            margin: 0;
+            font-size: 14px;
+            color: #89b4fa;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+        }
+
+        button {
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 11.5px;
+            padding: 8px;
+            transition: all 0.15s ease;
+        }
+
+        button:hover:not(:disabled) {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        button:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+
+        .btn-back {
+            background: #45475a;
+            color: #cdd6f4;
+            padding: 5px 9px;
+        }
+
+        .btn-primary {
+            background: #89b4fa;
+            color: #11111b;
+        }
+
+        .btn-secondary {
+            background: #45475a;
+            color: #cdd6f4;
+        }
+
+        /* Nền luôn trắng và có viền trắng (quiet zone) để máy quét đọc được */
+        #qrCanvas {
+            display: block;
+            width: 100%;
+            height: auto;
+            background: #ffffff;
+            border-radius: 8px;
+            image-rendering: pixelated;
+        }
+
+        #qrCanvas[hidden] {
+            display: none;
+        }
+
+        .message {
+            background: #181825;
+            color: #f38ba8;
+            padding: 24px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .message[hidden] {
+            display: none;
+        }
+
+        textarea {
+            display: block;
+            width: 100%;
+            height: 62px;
+            margin: 10px 0;
+            padding: 8px 10px;
+            resize: none;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: #181825;
+            color: #f9e2af;
+            font: 12px/1.4 Consolas, monospace;
+            word-break: break-all;
+        }
+
+        textarea:focus {
+            outline: 1px solid #89b4fa;
+        }
+
+        .actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <button id="backBtn" class="btn-back" title="Quay lại" hidden>←</button>
+        <h3>📱 Tạo mã QR</h3>
+    </div>
+
+    <canvas id="qrCanvas" role="img" aria-label="Mã QR của đường link"></canvas>
+    <div id="message" class="message" hidden></div>
+
+    <textarea id="linkInput" spellcheck="false" aria-label="Đường link cần tạo mã QR"
+        placeholder="Dán đường link vào đây..."></textarea>
+
+    <div class="actions">
+        <button id="downloadBtn" class="btn-primary">⬇️ Tải ảnh PNG</button>
+        <button id="copyBtn" class="btn-secondary">📋 Sao chép ảnh</button>
+    </div>
+
+    <script src="vendor/qrcode.js"></script>
+    <script src="qr.js"></script>
+</body>
+
+</html>

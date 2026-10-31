@@ -3,8 +3,17 @@ importScripts('shared.js');
 let isEnabled = true;
 let blockedCount = 0;
 let whitelist = PB_DEFAULT_WHITELIST.slice();
+// Trang đang được tạm bỏ chặn: { 'tinhte.vn': <thời điểm hết hạn ms> }. Chỉ background ghi giá trị này
+let tempAllow = {};
 // Tên miền chuyên mở popup/popunder quảng cáo (biên dịch từ quy tắc $popup của EasyList/ABPVN)
 let popupDomains = new Set();
+// Thời điểm của lượt chặn DNR mới nhất đã được cộng vào blockedCount
+let dnrLastSeen = 0;
+
+const TEMP_ALLOW_ALARM = 'pb_temp_allow_expiry';
+const DNR_COUNT_ALARM = 'pb_sync_dnr_counts';
+// Rule trong rules.json từ id này trở lên là ngoại lệ @@ (xem EXCEPTION_RULE_ID_START trong filter_compiler.py)
+const EXCEPTION_RULE_ID_START = 100000;
 
 // Danh sách các dịch vụ đăng nhập / ủy quyền phổ biến tránh đóng nhầm tab OAuth
 const OAUTH_DOMAINS = [
@@ -25,37 +34,40 @@ function syncDnrState(enabled) {
     }).catch(() => { });
 }
 
-function syncDnrWhitelist(domains) {
-    if (!chrome.declarativeNetRequest || !chrome.declarativeNetRequest.updateDynamicRules) return;
-    chrome.declarativeNetRequest.getDynamicRules((rules) => {
-        const oldRuleIds = rules.filter(r => r.id >= 90000 && r.id <= 90010).map(r => r.id);
-        const newRules = [];
-        if (isEnabled && domains && domains.length > 0) {
-            // Khớp theo tên miền của chính trang (requestDomains), vì trang mở từ thanh địa chỉ không có initiator
-            newRules.push({
-                id: 90001,
-                priority: 100,
-                action: { type: "allowAllRequests" },
-                condition: {
-                    requestDomains: domains,
-                    resourceTypes: ["main_frame", "sub_frame"]
-                }
-            });
-            newRules.push({
-                id: 90002,
-                priority: 100,
-                action: { type: "allow" },
-                condition: {
-                    initiatorDomains: domains,
-                    resourceTypes: ["script", "image", "xmlhttprequest", "stylesheet", "media", "font", "other"]
-                }
-            });
-        }
-        chrome.declarativeNetRequest.updateDynamicRules({
-            removeRuleIds: oldRuleIds,
-            addRules: newRules
-        }).catch(() => { });
-    });
+// Whitelist cố định + các trang đang tạm bỏ chặn
+function getAllowedDomains() {
+    return [...whitelist, ...pbActiveTempAllow(tempAllow)];
+}
+
+function syncDnrAllowRules() {
+    if (!chrome.declarativeNetRequest || !chrome.declarativeNetRequest.updateDynamicRules) return Promise.resolve();
+    const domains = getAllowedDomains();
+    const newRules = [];
+    if (isEnabled && domains.length > 0) {
+        // Khớp theo tên miền của chính trang (requestDomains), vì trang mở từ thanh địa chỉ không có initiator
+        newRules.push({
+            id: 90001,
+            priority: 100,
+            action: { type: "allowAllRequests" },
+            condition: {
+                requestDomains: domains,
+                resourceTypes: ["main_frame", "sub_frame"]
+            }
+        });
+        newRules.push({
+            id: 90002,
+            priority: 100,
+            action: { type: "allow" },
+            condition: {
+                initiatorDomains: domains,
+                resourceTypes: ["script", "image", "xmlhttprequest", "stylesheet", "media", "font", "other"]
+            }
+        });
+    }
+    return chrome.declarativeNetRequest.updateDynamicRules({
+        removeRuleIds: [90001, 90002],
+        addRules: newRules
+    }).catch(() => { });
 }
 
 // Badge do Chrome tự đếm: gồm request bị DNR chặn + popup/tab bị chặn (cộng thêm qua tabUpdate)
@@ -64,22 +76,16 @@ function syncBadgeMode(enabled) {
     chrome.declarativeNetRequest.setExtensionActionOptions({ displayActionCountAsBadgeText: enabled }).catch(() => { });
 }
 
-// Thống kê theo tab lưu trong storage.session để không bị mất khi service worker MV3 bị tắt (~30s không hoạt động)
-let tabStats = {};
-
 // Service worker có thể bị đánh thức bởi một sự kiện -> mọi xử lý phải chờ nạp xong trạng thái,
 // nếu không blockedCount = 0 sẽ ghi đè lên tổng số thật trong storage.
 const ready = (async () => {
-    const res = await chrome.storage.local.get(['enabled', 'blockedCount', 'whitelist']);
+    const res = await chrome.storage.local.get(['enabled', 'blockedCount', 'whitelist', 'tempAllow', 'dnrLastSeen']);
     if (res.enabled !== undefined) isEnabled = res.enabled;
     if (res.blockedCount !== undefined) blockedCount = res.blockedCount;
     if (res.whitelist !== undefined) whitelist = res.whitelist;
     else await chrome.storage.local.set({ whitelist });
-
-    try {
-        const session = await chrome.storage.session.get(['tabStats']);
-        tabStats = session.tabStats || {};
-    } catch (_) { }
+    if (res.tempAllow !== undefined) tempAllow = res.tempAllow;
+    if (res.dnrLastSeen !== undefined) dnrLastSeen = res.dnrLastSeen;
 
     try {
         const resp = await fetch(chrome.runtime.getURL('popup_domains.json'));
@@ -87,24 +93,94 @@ const ready = (async () => {
     } catch (_) { }
 })();
 
-ready.then(() => {
+ready.then(async () => {
     syncDnrState(isEnabled);
-    syncDnrWhitelist(whitelist);
     syncBadgeMode(isEnabled);
     chrome.action.setBadgeBackgroundColor({ color: '#f38ba8' }).catch(() => { });
+    await pruneTempAllow();
+    // Chỉ tạo khi chưa có: tạo lại sẽ reset bộ đếm giờ, mà service worker có thể thức dậy liên tục
+    if (!await chrome.alarms.get(DNR_COUNT_ALARM)) {
+        chrome.alarms.create(DNR_COUNT_ALARM, { periodInMinutes: 1 });
+    }
 });
+
+// --- TẠM BỎ CHẶN THEO TRANG ---
+function scheduleTempAllowAlarm() {
+    const expiries = Object.values(tempAllow);
+    if (expiries.length > 0) {
+        chrome.alarms.create(TEMP_ALLOW_ALARM, { when: Math.min(...expiries) });
+    } else {
+        chrome.alarms.clear(TEMP_ALLOW_ALARM);
+    }
+}
+
+async function saveTempAllow() {
+    await chrome.storage.local.set({ tempAllow });
+    await syncDnrAllowRules();
+    scheduleTempAllowAlarm();
+}
+
+async function pruneTempAllow() {
+    const active = pbActiveTempAllow(tempAllow);
+    tempAllow = Object.fromEntries(active.map(host => [host, tempAllow[host]]));
+    await saveTempAllow();
+}
+
+async function setTempAllow(host, minutes) {
+    await ready;
+    if (minutes > 0) {
+        tempAllow[host] = Date.now() + minutes * 60000;
+    } else {
+        delete tempAllow[host];
+    }
+    await saveTempAllow();
+}
+
+// --- ĐẾM LƯỢT CHẶN Ở TẦNG MẠNG (DNR) ---
+// DNR chặn trong trình duyệt nên extension không nhận được sự kiện nào, phải định kỳ hỏi lại.
+// Chạy nối tiếp để hai lần gọi đồng thời (alarm và popup) không cộng trùng.
+let dnrCountChain = Promise.resolve();
+
+function syncDnrCounts() {
+    dnrCountChain = dnrCountChain.then(async () => {
+        await ready;
+        try {
+            const { rulesMatchedInfo } = await chrome.declarativeNetRequest.getMatchedRules({ minTimeStamp: dnrLastSeen + 1 });
+            if (rulesMatchedInfo.length === 0) return;
+            dnrLastSeen = Math.max(...rulesMatchedInfo.map(info => info.timeStamp));
+            // Bỏ qua các lượt "cho phép" của whitelist (_dynamic) và ngoại lệ @@
+            blockedCount += rulesMatchedInfo.filter(info =>
+                info.rule.rulesetId !== '_dynamic' && info.rule.ruleId < EXCEPTION_RULE_ID_START
+            ).length;
+            await chrome.storage.local.set({ blockedCount, dnrLastSeen });
+        } catch (_) { } // Vượt quota gọi API: lần sau đọc tiếp từ dnrLastSeen
+    });
+    return dnrCountChain;
+}
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+    if (alarm.name === TEMP_ALLOW_ALARM) ready.then(pruneTempAllow);
+    if (alarm.name === DNR_COUNT_ALARM) syncDnrCounts();
+});
+
+// Số "Trang này" lấy đúng số Chrome đang hiện trên icon, để hai nơi luôn khớp nhau
+async function getTabBlockedCount(tabId) {
+    if (!tabId) return 0;
+    const text = await chrome.action.getBadgeText({ tabId }).catch(() => '');
+    return parseInt(text, 10) || 0;
+}
 
 chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local') return;
     if (changes.enabled !== undefined) {
         isEnabled = changes.enabled.newValue;
         syncDnrState(isEnabled);
-        syncDnrWhitelist(whitelist);
+        syncDnrAllowRules();
         syncBadgeMode(isEnabled);
     }
     if (changes.whitelist !== undefined) {
         whitelist = changes.whitelist.newValue;
-        syncDnrWhitelist(whitelist);
+        syncDnrAllowRules();
     }
 });
 
@@ -131,10 +207,24 @@ chrome.runtime.onInstalled.addListener(() => {
             title: "♻️ Khôi phục các phần tử đã ẩn trên trang này",
             contexts: ["all"]
         });
+        chrome.contextMenus.create({
+            id: "create_link_qr",
+            title: "📱 Tạo mã QR cho liên kết này",
+            contexts: ["link"]
+        });
     });
 });
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
+    if (info.menuItemId === 'create_link_qr') {
+        chrome.windows.create({
+            url: `qr.html?url=${encodeURIComponent(info.linkUrl)}`,
+            type: 'popup',
+            width: 340,
+            height: 560
+        }).catch(() => { });
+        return;
+    }
     if (!tab || !tab.id) return;
     // Chỉ gửi tới đúng frame được click chuột phải, tránh mọi iframe trong tab cùng nhận lệnh
     chrome.tabs.sendMessage(tab.id, { action: info.menuItemId }, { frameId: info.frameId || 0 }).catch(() => { });
@@ -145,14 +235,14 @@ function normalizeHost(hostname) {
     return (hostname || '').replace(/^www\./, '');
 }
 
-function isHostWhitelisted(hostname) {
+function isHostAllowed(hostname) {
     if (!hostname) return false;
-    return whitelist.some(domain => hostname === domain || hostname.endsWith('.' + domain));
+    return pbHostInList(hostname, getAllowedDomains());
 }
 
 function isOAuthHost(hostname) {
     if (!hostname) return false;
-    return OAUTH_DOMAINS.some(domain => hostname === domain || hostname.endsWith('.' + domain));
+    return pbHostInList(hostname, OAUTH_DOMAINS);
 }
 
 function isPopupAdHost(hostname) {
@@ -170,12 +260,8 @@ async function recordBlocked(tabId) {
     await ready;
     blockedCount++;
     chrome.storage.local.set({ blockedCount });
-    if (tabId) {
-        tabStats[tabId] = (tabStats[tabId] || 0) + 1;
-        chrome.storage.session.set({ tabStats }).catch(() => { });
-        if (isEnabled && chrome.declarativeNetRequest.setExtensionActionOptions) {
-            chrome.declarativeNetRequest.setExtensionActionOptions({ tabUpdate: { tabId, increment: 1 } }).catch(() => { });
-        }
+    if (tabId && isEnabled && chrome.declarativeNetRequest.setExtensionActionOptions) {
+        chrome.declarativeNetRequest.setExtensionActionOptions({ tabUpdate: { tabId, increment: 1 } }).catch(() => { });
     }
 }
 
@@ -189,23 +275,10 @@ function isUserInitiated(sourceTabId) {
     return !!trusted && (Date.now() - trusted.time < 3000);
 }
 
-// Xóa thống kê khi đóng Tab
+// Xóa dữ liệu theo dõi khi đóng Tab
 chrome.tabs.onRemoved.addListener((tabId) => {
     delete trustedClicks[tabId];
     delete pendingPopups[tabId];
-    ready.then(() => {
-        delete tabStats[tabId];
-        chrome.storage.session.set({ tabStats }).catch(() => { });
-    });
-});
-
-// Reset số đếm tab khi tải trang mới (top-level navigation)
-chrome.webNavigation.onCommitted.addListener((details) => {
-    if (details.frameId !== 0) return;
-    ready.then(() => {
-        tabStats[details.tabId] = 0;
-        chrome.storage.session.set({ tabStats }).catch(() => { });
-    });
 });
 
 // Lắng nghe yêu cầu thống kê hoặc thông báo chặn từ content script
@@ -219,12 +292,16 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         recordBlocked(sender.tab.id);
     } else if (msg.action === 'get_tab_stats') {
         const targetTabId = msg.tabId || (sender.tab ? sender.tab.id : null);
-        ready.then(() => {
+        syncDnrCounts().then(async () => {
             sendResponse({
-                tabCount: targetTabId ? (tabStats[targetTabId] || 0) : 0,
+                tabCount: await getTabBlockedCount(targetTabId),
                 globalCount: blockedCount
             });
         });
+        return true;
+    } else if (msg.action === 'set_temp_allow' && msg.host) {
+        // Phản hồi sau khi rule mạng đã cập nhật, để popup tải lại trang đúng trạng thái mới
+        setTempAllow(msg.host, msg.minutes).then(() => sendResponse({ done: true }));
         return true;
     }
 });
@@ -261,7 +338,7 @@ chrome.webNavigation.onCreatedNavigationTarget.addListener(async (details) => {
         if (!sourceTab || !sourceTab.url) return;
 
         const sourceHost = new URL(sourceTab.url).hostname;
-        if (isHostWhitelisted(sourceHost)) return;
+        if (isHostAllowed(sourceHost)) return;
         if (isBrowserInternalUrl(details.url)) return;
 
         // Kiểm tra xem cú mở tab này có xuất phát từ thao tác click thực của người dùng không

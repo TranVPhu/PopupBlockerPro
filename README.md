@@ -22,11 +22,13 @@
 - ⚡ **Bộ công cụ Element Zapper & Element Picker nâng cao (chuẩn uBlock Origin)**:
   - **Element Zapper (⚡ Tẩy nhanh)**: Bấm vào phần tử để xóa ngay lập tức khỏi trang hiện tại mà không cần lưu rule.
   - **Element Picker (🎯 Bộ chọn)**: Rà chuột viền đỏ, hỗ trợ phím mũi tên `[↑]` để mở rộng lên thẻ cha bao bọc và `[↓]` để thu hẹp về thẻ con.
+- ⏸️ **Tạm bỏ chặn theo trang**: Trang nào cần tắt chặn một lúc thì bấm 1 nút trong popup, sau 30 phút tự chặn lại mà không phải nhớ gỡ khỏi Whitelist.
+- 📱 **Tạo mã QR cho đường link**: Bấm nút trong popup để tạo QR cho trang đang mở, hoặc click chuột phải vào một liên kết bất kỳ. Có thể sửa link trực tiếp, tải ảnh PNG hoặc sao chép ảnh. Mã được tạo ngay trên máy, không gửi dữ liệu đi đâu.
 - 🍪 **Xóa sổ hộp thoại Cookie & GDPR Annoyance**: Tự động triệt tiêu các bảng thông báo "Trang này sử dụng Cookie", Cookiebot, OneTrust, Didomi... che khuất nội dung trang web.
 - 🚫 **Xóa sổ lớp phủ tàng hình (Invisible Overlays)**: Tự động phát hiện và triệt tiêu các lớp `div` vô hình phủ toàn màn hình chuyên bẫy cú click chuột đầu tiên của bạn.
-- ⚡ **Vượt mặt Anti-Adblock (Anti-Adblock Defuser)**: Đánh lừa và vô hiệu hóa các thư viện kiểm tra chặn quảng cáo phổ biến (`FuckAdBlock`, `BlockAdBlock`), tự động mở khóa thanh cuộn trang bị đóng băng.
+- ⚡ **Vượt mặt Anti-Adblock (Anti-Adblock Defuser)**: Đánh lừa và vô hiệu hóa các thư viện kiểm tra chặn quảng cáo phổ biến (`FuckAdBlock`, `BlockAdBlock`). Tự động ẩn các hộp thoại đòi tắt chặn quảng cáo (nhận diện theo nội dung tiếng Việt và tiếng Anh, áp dụng cho mọi trang) và mở khóa thanh cuộn trang bị đóng băng.
 - 🔋 **Tiết kiệm Pin & Siêu nhẹ (0% CPU Idle)**: Thay thế toàn bộ vòng quét định kỳ `setInterval` bằng `MutationObserver` kết hợp Debounce, chỉ kích hoạt khi trang web thực sự có thay đổi DOM.
-- 🌐 **Đồng bộ Declarative Net Request (DNR) chuẩn MV3**: Tự động bật/tắt toàn bộ 15.000+ quy tắc mạng khi chuyển đổi công tắc tiện ích hoặc thêm trang vào Danh sách tin cậy (Whitelist).
+- 🌐 **Đồng bộ Declarative Net Request (DNR) chuẩn MV3**: Tự động bật/tắt toàn bộ 44.000+ tên miền trong quy tắc mạng khi chuyển đổi công tắc tiện ích hoặc thêm trang vào Danh sách tin cậy (Whitelist).
 - 🚀 **Trình cài đặt 1-Click độc quyền (`CaiDatChanPopup.exe`)**: Tự động nhận diện mọi trình duyệt trên máy tính (Google Chrome, Microsoft Edge, Cốc Cốc, Brave, Opera, Vivaldi), nạp extension trực tiếp và tạo lối tắt Desktop chỉ với 1 cú click.
 
 ---
@@ -62,8 +64,11 @@ PopupBlockerPro/
 ├── inject.js            # Script can thiệp (MAIN): Ghi đè window.open & vô hiệu hóa Anti-adblock
 ├── popup.html           # Giao diện điều khiển Catppuccin Dark Mode
 ├── popup.js             # Logic bật/tắt toàn hệ thống, danh sách trắng (Whitelist) & thống kê
+├── qr.html, qr.js       # Trang tạo mã QR (mở từ popup hoặc menu chuột phải)
+├── vendor/qrcode.js     # Thư viện qrcode-generator 2.0.4 của Kazuhiko Arase (MIT)
 ├── shared.js            # Hằng số dùng chung (whitelist mặc định)
 ├── rules.json           # Cơ sở dữ liệu quy tắc Declarative Net Request
+├── cosmetic_rules.js    # Quy tắc ẩn phần tử (##) của ABPVN, xóa các ô quảng cáo trống
 ├── popup_domains.json   # Tên miền popup quảng cáo (quy tắc $popup) để đóng tab kể cả khi có click
 ├── installer.py         # Mã nguồn Python GUI của công cụ quản lý cài đặt tự động
 ├── filter_compiler.py   # Module biên dịch bộ lọc dùng chung cho installer & build_easylist
