@@ -1,47 +1,51 @@
 <div align="center">
 
-  <img src="https://raw.githubusercontent.com/TranVPhu/PopupBlockerPro/main/icons/logo.png" alt="Popup Blocker Pro Logo" width="130" style="border-radius: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.4);" />
+  <img src="icons/logo.png" alt="Popup Blocker Pro Logo" width="130" />
 
   # 🛡️ Ultimate Popup & Overlay Blocker Pro (V3.1)
 
-  **Tiện ích chặn toàn diện Popup nhảy tab, Video Ads, Cookie Banners, Lớp phủ vô hình và Vượt qua Anti-Adblock dành cho mọi trình duyệt nhân Chromium (Học hỏi & Tối ưu theo chuẩn uBlock Origin).**
+  **Tiện ích chặn popup, tab quảng cáo, trình theo dõi, bảng cookie và lớp phủ gây phiền cho các trình duyệt nhân Chromium, có tối ưu cho trang Việt Nam.**
 
   [![Manifest V3](https://img.shields.io/badge/Manifest-V3-89b4fa?style=for-the-badge&logo=googlechrome&logoColor=white)](https://developer.chrome.com/docs/extensions/mv3/intro/)
-  [![Chromium Supported](https://img.shields.io/badge/Browsers-Chrome%20%7C%20Edge%20%7C%20Brave%20%7C%20C%E1%BB%91cC%E1%BB%91c%20%7C%20Opera-a6e3a1?style=for-the-badge)](https://github.com/TranVPhu/PopupBlockerPro)
-  [![Filter Lists](https://img.shields.io/badge/Rules-EasyList%20%2B%20ABPVN%20%2B%20CookieMonster-fab387?style=for-the-badge)](https://github.com/abpvn/abpvn)
-  [![License](https://img.shields.io/badge/License-MIT-f38ba8?style=for-the-badge)](LICENSE)
+  [![Filter Lists](https://img.shields.io/badge/Rules-EasyList%20%2B%20EasyPrivacy%20%2B%20ABPVN-fab387?style=for-the-badge)](THIRD_PARTY_NOTICES.md)
+  [![License](https://img.shields.io/badge/Code-MIT-f38ba8?style=for-the-badge)](LICENSE)
+  [![Filters License](https://img.shields.io/badge/Filters-GPLv3-a6e3a1?style=for-the-badge)](THIRD_PARTY_NOTICES.md)
 
 </div>
 
 ---
 
-## 🌟 Tính Năng Nổi Bật (Phiên bản 3.1.0)
+## 🌟 Tính Năng (Phiên bản 3.1.0)
 
-- 🛡️ **Khắc tinh của Popup & Popunder thông minh**: Áp dụng chuẩn `navigator.userActivation` để chặn đứng 100% popup tự kích hoạt lén lút, link ẩn `target="_blank"`, chống Popup Flood và chiêu trò Popunder làm mờ cửa sổ. Tuyệt đối **không chặn nhầm** cửa sổ Đăng nhập Google/Facebook (OAuth) hoặc lệnh In hóa đơn/Vé điện tử.
-- 📥 **Tương thích hoàn hảo với Web App**: Không bao giờ chặn hành vi tải file tự động (hỗ trợ đầy đủ các thẻ ảo `blob:`, `data:`, thuộc tính `download` của Google Docs, Canva, Excel...).
-- ⚡ **Bộ công cụ Element Zapper & Element Picker nâng cao (chuẩn uBlock Origin)**:
-  - **Element Zapper (⚡ Tẩy nhanh)**: Bấm vào phần tử để xóa ngay lập tức khỏi trang hiện tại mà không cần lưu rule.
-  - **Element Picker (🎯 Bộ chọn)**: Rà chuột viền đỏ, hỗ trợ phím mũi tên `[↑]` để mở rộng lên thẻ cha bao bọc và `[↓]` để thu hẹp về thẻ con.
-- ⏸️ **Tạm bỏ chặn theo trang**: Trang nào cần tắt chặn một lúc thì bấm 1 nút trong popup, sau 30 phút tự chặn lại mà không phải nhớ gỡ khỏi Whitelist.
-- 📱 **Tạo mã QR cho đường link**: Bấm nút trong popup để tạo QR cho trang đang mở, hoặc click chuột phải vào một liên kết bất kỳ. Có thể sửa link trực tiếp, tải ảnh PNG hoặc sao chép ảnh. Mã được tạo ngay trên máy, không gửi dữ liệu đi đâu.
-- 🍪 **Xóa sổ hộp thoại Cookie & GDPR Annoyance**: Tự động triệt tiêu các bảng thông báo "Trang này sử dụng Cookie", Cookiebot, OneTrust, Didomi... che khuất nội dung trang web.
-- 🚫 **Xóa sổ lớp phủ tàng hình (Invisible Overlays)**: Tự động phát hiện và triệt tiêu các lớp `div` vô hình phủ toàn màn hình chuyên bẫy cú click chuột đầu tiên của bạn.
-- ⚡ **Vượt mặt Anti-Adblock (Anti-Adblock Defuser)**: Đánh lừa và vô hiệu hóa các thư viện kiểm tra chặn quảng cáo phổ biến (`FuckAdBlock`, `BlockAdBlock`). Tự động ẩn các hộp thoại đòi tắt chặn quảng cáo (nhận diện theo nội dung tiếng Việt và tiếng Anh, áp dụng cho mọi trang) và mở khóa thanh cuộn trang bị đóng băng.
-- 🔋 **Tiết kiệm Pin & Siêu nhẹ (0% CPU Idle)**: Thay thế toàn bộ vòng quét định kỳ `setInterval` bằng `MutationObserver` kết hợp Debounce, chỉ kích hoạt khi trang web thực sự có thay đổi DOM.
-- 🌐 **Đồng bộ Declarative Net Request (DNR) chuẩn MV3**: Tự động bật/tắt toàn bộ các tên miền trong quy tắc mạng (EasyList, EasyPrivacy, ABPVN, Fanboy Cookie) khi chuyển đổi công tắc tiện ích hoặc thêm trang vào Danh sách tin cậy (Whitelist).
-- 🚀 **Trình cài đặt 1-Click độc quyền (`CaiDatChanPopup.exe`)**: Tự động nhận diện mọi trình duyệt trên máy tính (Google Chrome, Microsoft Edge, Cốc Cốc, Brave, Opera, Vivaldi), nạp extension trực tiếp và tạo lối tắt Desktop chỉ với 1 cú click.
+- 🛡️ **Chặn popup và popunder**: Chặn popup tự mở khi không có thao tác của người dùng, popup mở hàng loạt, và đóng tab mới nếu nó đi tới tên miền quảng cáo đã biết hoặc sang trang khác sau một cú click vào vùng không bấm được. Các trang đăng nhập phổ biến (Google, Facebook, Microsoft...) được miễn để hạn chế đóng nhầm.
+- 🌐 **Chặn quảng cáo và trình theo dõi ở tầng mạng**: Dùng Declarative Net Request với quy tắc biên dịch từ EasyList, EasyPrivacy, ABPVN và Easylist Cookie List.
+- 🧹 **Ẩn phần tử quảng cáo**: Áp dụng quy tắc `##` của ABPVN để ẩn các ô quảng cáo trống. Ngoại lệ `@@` của các danh sách cũng được áp dụng để giảm rủi ro hỏng trang.
+- 🍪 **Ẩn bảng thông báo cookie**: Nhận diện các loại phổ biến như OneTrust, Cookiebot, Didomi.
+- 🚫 **Xử lý lớp phủ vô hình**: Phát hiện và ẩn các lớp phủ toàn màn hình trong suốt chuyên bẫy cú click.
+- 🔓 **Giảm hộp thoại đòi tắt chặn quảng cáo**: Giả lập các thư viện kiểm tra phổ biến (`FuckAdBlock`, `BlockAdBlock`), ẩn hộp thoại nhận diện được qua nội dung tiếng Việt và tiếng Anh, rồi mở lại thanh cuộn.
+- 🎯 **Tự chọn phần tử cần ẩn**:
+  - **Tẩy nhanh (Zapper)**: Bấm vào phần tử để ẩn trong lần xem hiện tại, không lưu lại.
+  - **Rà chọn (Picker)**: Rà chuột để chọn và lưu quy tắc ẩn, dùng phím `[↑]` và `[↓]` để mở rộng hoặc thu hẹp vùng chọn.
+- ⏸️ **Tạm bỏ chặn theo trang**: Tắt chặn cho trang đang xem bằng 1 nút trong popup, sau 30 phút tự chặn lại.
+- 📱 **Tạo mã QR cho đường link**: Từ popup hoặc menu chuột phải. Có thể sửa link, tải ảnh PNG hoặc sao chép ảnh. Mã được tạo ngay trên máy.
+- 🔋 **Tiết kiệm tài nguyên khi trang không đổi**: Dùng `MutationObserver` có debounce thay cho vòng quét định kỳ trong trang.
+- 📥 **Không can thiệp tải file**: Các link `blob:`, `data:` và thuộc tính `download` được bỏ qua khi kiểm tra click tự động.
+
+## ⚠️ Giới Hạn Cần Biết
+
+Không có tiện ích chặn quảng cáo nào bắt được mọi thứ, và tiện ích này cũng vậy:
+
+- **Mặc định không chặn trên** `google.com`, `youtube.com`, `facebook.com`, `github.com` vì nằm trong danh sách tin cậy. Bạn có thể gỡ trong popup, nhưng tiện ích không có cơ chế riêng cho quảng cáo video YouTube.
+- **Có thể lọt**: Link thật bị thay để mở thêm tab quảng cáo, và tab từ nút thật tới tên miền chưa có trong danh sách. Một số dạng quy tắc của bộ lọc cũng chưa được biên dịch.
+- **Có thể chặn nhầm**: Nếu trang có phần tử bấm được nhưng không có dấu hiệu nào (không phải nút, không có con trỏ bàn tay) và nó mở tab sang trang khác, tab đó sẽ bị đóng. Khi gặp, hãy dùng nút tạm bỏ chặn hoặc thêm trang vào danh sách tin cậy.
+- **Số trên icon** do Chrome đếm, gồm cả trình theo dõi, và có thể lệch nhẹ so với thực tế.
+- **Bộ lọc** chỉ cập nhật khi cài phiên bản mới của tiện ích.
 
 ---
 
 ## 🚀 Hướng Dẫn Cài Đặt
 
-### Cách 1: Sử dụng Trình cài đặt tự động (Khuyên dùng - Nhanh nhất)
-1. Tải về hoặc mở tệp `dist/CaiDatChanPopup.exe`.
-2. Ứng dụng sẽ tự động rà soát các trình duyệt nhân Chromium có sẵn trên máy bạn.
-3. Tích chọn trình duyệt bạn muốn sử dụng và bấm **"📌 Mở trang Cài đặt cố định"** (cài vĩnh viễn, dùng được cho mọi trình duyệt) hoặc **"⚡ Chạy kèm Extension & Tạo Shortcut Desktop"** (Edge, Cốc Cốc, Brave, Opera, Vivaldi — Google Chrome bản chính thức đã bỏ cờ `--load-extension`).
-4. Làm theo hướng dẫn hiện ra (đường dẫn thư mục đã được copy sẵn vào Clipboard).
-
-### Cách 2: Cài đặt thủ công bằng chế độ Nhà phát triển (Developer Mode)
+### Cách 1: Cài thủ công bằng chế độ Nhà phát triển
 1. Mở trang quản lý tiện ích trên trình duyệt:
    - Chrome / Cốc Cốc: `chrome://extensions`
    - Microsoft Edge: `edge://extensions`
@@ -51,29 +55,40 @@
 3. Bấm nút **Load unpacked** (Tải tiện ích đã giải nén).
 4. Chọn đúng thư mục `PopupBlockerPro` (thư mục chứa file `manifest.json`).
 
+### Cách 2: Dùng trình cài đặt trên Windows
+Trình cài đặt `CaiDatChanPopup.exe` không có sẵn trong repo, cần tự đóng gói theo hướng dẫn ở phần dành cho lập trình viên. File chưa được ký số nên Windows có thể cảnh báo.
+
+1. Mở `dist/CaiDatChanPopup.exe` sau khi đóng gói.
+2. Ứng dụng rà soát các trình duyệt nhân Chromium có trên máy.
+3. Chọn trình duyệt rồi bấm **"📌 Mở trang Cài đặt cố định"** (dùng được cho mọi trình duyệt) hoặc **"⚡ Chạy kèm Extension & Tạo Shortcut Desktop"** (Edge, Cốc Cốc, Brave, Opera, Vivaldi; Google Chrome bản chính thức đã bỏ cờ `--load-extension`).
+4. Làm theo hướng dẫn hiện ra (đường dẫn thư mục đã được copy sẵn vào Clipboard).
+
 ---
 
 ## 📂 Cấu Trúc Dự Án
 
 ```text
 PopupBlockerPro/
-├── icons/               # Bộ icon nhận diện thương hiệu chuẩn MV3 (16, 32, 48, 128, 512, .ico)
-├── manifest.json        # Tệp cấu hình chuẩn Chrome Extension Manifest V3
-├── background.js        # Service Worker: Quản lý badge, chặn tab rác, xử lý context menu
-├── bridge.js            # Content Script (ISOLATED): Lọc CSS, xóa lớp phủ & bộ chọn thủ công
-├── inject.js            # Script can thiệp (MAIN): Ghi đè window.open & vô hiệu hóa Anti-adblock
-├── popup.html           # Giao diện điều khiển Catppuccin Dark Mode
-├── popup.js             # Logic bật/tắt toàn hệ thống, danh sách trắng (Whitelist) & thống kê
-├── qr.html, qr.js       # Trang tạo mã QR (mở từ popup hoặc menu chuột phải)
+├── icons/               # Bộ icon (16, 32, 48, 128, 512, .ico)
+├── manifest.json        # Cấu hình Chrome Extension Manifest V3
+├── background.js        # Service Worker: badge, đóng tab quảng cáo, menu chuột phải
+├── bridge.js            # Content Script (ISOLATED): lọc CSS, ẩn lớp phủ, bộ chọn phần tử
+├── inject.js            # Script trong trang (MAIN): kiểm soát window.open, giả lập thư viện kiểm tra
+├── popup.html, popup.js # Giao diện điều khiển, danh sách tin cậy và thống kê
+├── qr.html, qr.js       # Trang tạo mã QR
+├── donate.html          # Trang ủng hộ, cần thêm ảnh momo-qr.png thì link mới hiện
+├── privacy.html         # Chính sách quyền riêng tư và giấy phép
 ├── vendor/qrcode.js     # Thư viện qrcode-generator 2.0.4 của Kazuhiko Arase (MIT)
-├── shared.js            # Hằng số dùng chung (whitelist mặc định)
-├── rules.json           # Cơ sở dữ liệu quy tắc Declarative Net Request
-├── cosmetic_rules.js    # Quy tắc ẩn phần tử (##) của ABPVN, xóa các ô quảng cáo trống
-├── popup_domains.json   # Tên miền popup quảng cáo (quy tắc $popup) để đóng tab kể cả khi có click
-├── installer.py         # Mã nguồn Python GUI của công cụ quản lý cài đặt tự động
-├── filter_compiler.py   # Module biên dịch bộ lọc dùng chung cho installer & build_easylist
-├── build_easylist.py    # Script cập nhật danh sách chặn từ EasyList & ABPVN
-└── CaiDatChanPopup.spec # Cấu hình đóng gói PyInstaller
+├── shared.js            # Hằng số dùng chung
+├── rules.json           # Quy tắc Declarative Net Request (biên dịch tự động)
+├── cosmetic_rules.js    # Quy tắc ẩn phần tử (biên dịch tự động)
+├── popup_domains.json   # Tên miền popup quảng cáo (biên dịch tự động)
+├── filter_compiler.py   # Module biên dịch bộ lọc
+├── build_easylist.py    # Script cập nhật bộ lọc
+├── package_extension.py # Đóng gói ZIP để nộp store
+├── installer.py         # Mã nguồn công cụ cài đặt trên Windows
+├── docs/                # Hồ sơ nộp Chrome Web Store
+└── tests/               # Kiểm thử Python và end-to-end
 ```
 
 ---
@@ -82,7 +97,6 @@ PopupBlockerPro/
 
 ### Cài đặt môi trường phát triển:
 ```bash
-# Tạo môi trường ảo và cài đặt dependencies
 python -m venv .venv
 .venv\Scripts\activate
 pip install pyinstaller pillow
@@ -103,13 +117,23 @@ npx playwright install chromium
 npm test            # toàn bộ, hoặc: node run-all.js popups
 ```
 
-### Đóng gói lại phần mềm cài đặt EXE:
+### Đóng gói:
 ```bash
+python package_extension.py   # ZIP nộp store
 pyinstaller --onefile --noconsole --name "CaiDatChanPopup" --icon="icons/icon.ico" --clean -y installer.py
 ```
 
+### Bật link ủng hộ:
+Đặt ảnh mã MoMo vào thư mục gốc với tên `momo-qr.png`. Link trong popup sẽ tự hiện, và tiện ích không hiện thông báo nhắc nào. Ảnh này nằm trong gói công khai, nên cần kiểm tra mã không để lộ thông tin bạn không muốn công khai.
+
 ---
 
-## 📄 Bản Quyền (License)
+## 🔒 Quyền Riêng Tư
 
-Dự án được phân phối dưới giấy phép **MIT License**. Mọi đóng góp (Pull Request, Issue) đều được chào đón nồng nhiệt!
+Tiện ích không có máy chủ và không gửi dữ liệu duyệt web đi đâu. Xem chi tiết trong [privacy.html](privacy.html).
+
+## 📄 Bản Quyền
+
+- **Mã nguồn của dự án:** [MIT License](LICENSE).
+- **Các file bộ lọc** (`rules.json`, `popup_domains.json`, `cosmetic_rules.js`): biên dịch từ danh sách của bên thứ ba, phân phối theo [GPLv3](LICENSES/GPL-3.0.txt).
+- **Ghi công và chi tiết:** xem [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

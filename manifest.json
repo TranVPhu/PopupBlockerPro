@@ -2,7 +2,7 @@
     "manifest_version": 3,
     "name": "Ultimate Popup & Overlay Blocker Pro",
     "version": "3.1.0",
-    "description": "Chặn toàn diện popup, video ads, cookie banners, xóa lớp phủ vô hình, hỗ trợ Element Picker và Element Zapper.",
+    "description": "Chặn popup, tab quảng cáo, trình theo dõi, bảng cookie và lớp phủ gây phiền. Có công cụ tự chọn phần tử cần ẩn.",
     "icons": {
         "16": "icons/icon16.png",
         "32": "icons/icon32.png",

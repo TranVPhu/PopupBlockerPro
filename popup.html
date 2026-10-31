@@ -166,6 +166,28 @@
             border: 1px dashed rgba(243, 139, 168, 0.4);
             display: none;
         }
+
+        .footer {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-top: 4px;
+            font-size: 11px;
+        }
+
+        .footer a {
+            color: #a6adc8;
+            text-decoration: none;
+        }
+
+        .footer a:hover {
+            color: #cdd6f4;
+            text-decoration: underline;
+        }
+
+        .footer a[hidden] {
+            display: none;
+        }
     </style>
 </head>
 
@@ -197,6 +219,11 @@
     <button id="resetBtn" class="btn-reset">♻️ Khôi phục phần tử đã ẩn</button>
     <button id="whitelistBtn" class="btn-wl-add">Cho phép trang này (Whitelist)</button>
     <button id="toggleBtn" class="btn-on">ĐANG BẬT TOÀN HỆ THỐNG</button>
+
+    <div class="footer">
+        <a id="donateLink" href="donate.html" target="_blank" hidden>☕ Ủng hộ tác giả</a>
+        <a id="privacyLink" href="privacy.html" target="_blank">Quyền riêng tư &amp; giấy phép</a>
+    </div>
 
     <script src="shared.js"></script>
     <script src="popup.js"></script>

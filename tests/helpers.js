@@ -17,7 +17,7 @@ async function eventually(fn, timeoutMs = 15000) {
 }
 
 // Mọi tên miền ngoài localhost đều không ra mạng thật: resolveTo là "127.0.0.1:<cổng>" hoặc báo lỗi DNS ngay
-async function launchExtension({ resolveTo = '~NOTFOUND' } = {}) {
+async function launchExtension({ resolveTo = '~NOTFOUND', extDir = EXT_DIR } = {}) {
     const ctx = await chromium.launchPersistentContext(fs.mkdtempSync(path.join(os.tmpdir(), 'pb-test-')), {
         channel: 'chromium',
         headless: true,
@@ -25,8 +25,8 @@ async function launchExtension({ resolveTo = '~NOTFOUND' } = {}) {
         viewport: { width: 1366, height: 800 },
         locale: 'vi-VN',
         args: [
-            `--disable-extensions-except=${EXT_DIR}`,
-            `--load-extension=${EXT_DIR}`,
+            `--disable-extensions-except=${extDir}`,
+            `--load-extension=${extDir}`,
             `--host-resolver-rules=MAP * ${resolveTo}, EXCLUDE localhost`
         ]
     });

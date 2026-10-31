@@ -133,6 +133,11 @@ pauseBtn.addEventListener('click', () => {
     });
 });
 
+// Link ủng hộ chỉ hiện khi gói cài đặt có ảnh mã MoMo
+fetch(chrome.runtime.getURL('momo-qr.png')).then((resp) => {
+    if (resp.ok) document.getElementById('donateLink').hidden = false;
+}).catch(() => { });
+
 // Mở trang tạo mã QR ngay trong popup cho đường link hiện tại
 qrBtn.addEventListener('click', () => {
     if (!currentUrl) return;

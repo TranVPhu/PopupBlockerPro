@@ -36,13 +36,19 @@ def create_store_package():
         "popup.js",
         "qr.html",
         "qr.js",
+        "donate.html",
+        "momo-qr.png",
+        "privacy.html",
         "rules.json",
         "popup_domains.json",
-        "cosmetic_rules.js"
+        "cosmetic_rules.js",
+        "LICENSE",
+        "THIRD_PARTY_NOTICES.md"
     ]
     include_dirs = [
         "icons",
-        "vendor"
+        "vendor",
+        "LICENSES"
     ]
 
     print(f"📦 Đang đóng gói tệp {zip_name} cho Chrome Web Store / Edge Add-ons...")
