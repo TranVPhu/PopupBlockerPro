@@ -1,8 +1,6 @@
 // Kiểm tra logic ẩn hộp thoại chống chặn quảng cáo trên các trang mẫu, gồm cả các trường hợp KHÔNG được ẩn
 const http = require('http');
-const fs = require('fs');
-const path = require('path');
-const { EXT_DIR, launchExtension, createChecker, sendAsPopup, runTest } = require('./helpers');
+const { eventually, launchExtension, createChecker, runTest } = require('./helpers');
 
 const { check, finish } = createChecker();
 
@@ -48,40 +46,45 @@ runTest(async () => {
         res.end('<!doctype html><meta charset="utf-8"><title>t</title>' + (PAGES[req.url] || ''));
     }).listen(0);
     const base = `http://localhost:${server.address().port}`;
-    const { ctx, sw, extId, swWarnings } = await launchExtension();
+    const { ctx, sw } = await launchExtension();
     const page = await ctx.newPage();
     const errors = [];
     page.on('pageerror', (e) => errors.push(e.message));
 
     const visible = (sel) => page.isVisible(sel);
+    // Phải tồn tại rồi mới ẩn, nếu không trang chưa kịp tạo hộp thoại cũng bị tính là đạt
+    const hiddenOnceExists = (sel) => eventually(async () => (await page.locator(sel).count()) > 0 && !(await visible(sel)));
 
     await page.goto(base + '/react');
-    await page.waitForTimeout(1000);
-    check('react portal modal hidden', !(await visible('#dlg')));
-    await page.mouse.wheel(0, 800);
-    await page.waitForTimeout(300);
-    check('scroll unlocked after hiding', (await page.evaluate(() => scrollY)) > 0, 'scrollY=' + await page.evaluate(() => scrollY));
+    check('react portal modal hidden', await hiddenOnceExists('#dlg'));
+    const scrolled = await eventually(async () => {
+        await page.mouse.wheel(0, 800);
+        await page.waitForTimeout(100);
+        return (await page.evaluate(() => scrollY)) > 0;
+    });
+    check('scroll unlocked after hiding', scrolled, 'scrollY=' + await page.evaluate(() => scrollY));
 
     await page.goto(base + '/scroll');
-    await page.mouse.wheel(0, 500);
-    await page.waitForTimeout(500);
-    check('modal shown on scroll hidden', (await page.locator('#dlg').count()) === 1 && !(await visible('#dlg')));
+    await page.waitForLoadState('load');
+    const modalCreated = await eventually(async () => {
+        await page.mouse.wheel(0, 500);
+        await page.waitForTimeout(100);
+        return (await page.locator('#dlg').count()) === 1;
+    });
+    check('modal shown on scroll hidden', modalCreated && await hiddenOnceExists('#dlg'));
 
     await page.goto(base + '/ssr');
-    await page.waitForTimeout(500);
-    check('server-rendered modal hidden', !(await visible('#dlg')));
+    check('server-rendered modal hidden', await hiddenOnceExists('#dlg'));
 
     await page.goto(base + '/preRendered');
-    await page.waitForTimeout(1000);
-    check('pre-rendered modal stays hidden when shown', !(await visible('#dlg')));
+    await page.waitForFunction(() => document.getElementById('dlg').style.display === 'block', null, { polling: 100 });
+    check('pre-rendered modal stays hidden when shown', await hiddenOnceExists('#dlg'));
 
     await page.goto(base + '/backdrop');
-    await page.waitForTimeout(600);
-    check('detached backdrop hidden', !(await visible('#dlg')) && !(await visible('#bd')));
+    check('detached backdrop hidden', await hiddenOnceExists('#dlg') && await hiddenOnceExists('#bd'));
 
     await page.goto(base + '/smallBtn');
-    await page.waitForTimeout(500);
-    check('small nag button hidden', !(await visible('#dlg')));
+    check('small nag button hidden', await hiddenOnceExists('#dlg'));
     check('small button does not touch scroll', !(await page.evaluate(() => document.documentElement.hasAttribute('data-pb-unlock'))));
 
     for (const p of ['/article', '/fixedApp', '/normalModal', '/roadblock', '/banner']) {
@@ -93,9 +96,9 @@ runTest(async () => {
 
     // Thêm trang vào whitelist -> không ẩn
     await sw.evaluate(() => chrome.storage.local.get('whitelist').then((r) => chrome.storage.local.set({ whitelist: [...r.whitelist, 'localhost'] })));
-    await page.waitForTimeout(300);
     await page.goto(base + '/ssr');
-    await page.waitForTimeout(500);
+    await page.waitForLoadState('load');
+    await page.waitForTimeout(1500);
     check('whitelisted site keeps modal', await visible('#dlg'));
 
     check('no page errors', errors.length === 0, errors.join(' | '));

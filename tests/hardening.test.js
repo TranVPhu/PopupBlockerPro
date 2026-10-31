@@ -1,7 +1,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
-const { EXT_DIR, launchExtension, createChecker, sendAsPopup, runTest } = require('./helpers');
+const { EXT_DIR, eventually, launchExtension, createChecker, runTest } = require('./helpers');
 const { check, finish } = createChecker();
 runTest(async () => {
   const server = http.createServer((req, res) => {
@@ -18,39 +18,43 @@ runTest(async () => {
   const wl = await sw.evaluate(() => chrome.storage.local.get('whitelist').then(r => r.whitelist));
   const page = await ctx.newPage();
   const errs = []; page.on('pageerror', e => errs.push(e.message));
+  const dynamicDomainsInclude = (domain) => sw.evaluate(async (d) => (await chrome.declarativeNetRequest.getDynamicRules()).flatMap(r => r.condition.requestDomains || []).includes(d), domain);
 
   // about:blank trên trang đã tin cậy KHÔNG còn bị coi là đang bảo vệ, trang thường vẫn được bảo vệ
-  const frameState = () => page.evaluate(async () => { const f = document.createElement('iframe'); document.body.appendChild(f); const d = f.contentDocument; d.body.innerHTML = '<div class="ad-banner" id="x">ad</div>'; await new Promise(r => setTimeout(r, 700)); return { style: f.contentWindow.getComputedStyle(d.getElementById('x')).display === 'none' }; });
-  await page.goto(base + '/'); await page.waitForTimeout(300);
-  check('protected site: about:blank frame protected', (await frameState()).style === true);
-  await sw.evaluate((w) => chrome.storage.local.set({ whitelist: [...w, 'localhost'] }), wl); await page.waitForTimeout(300);
-  await page.goto(base + '/'); await page.waitForTimeout(300);
-  check('whitelisted site: about:blank frame NOT protected', (await frameState()).style === false);
-  await sw.evaluate((w) => chrome.storage.local.set({ whitelist: w }), wl); await page.waitForTimeout(300);
+  const frameState = (wait) => page.evaluate(async (wait) => { const f = document.createElement('iframe'); document.body.appendChild(f); const d = f.contentDocument; d.body.innerHTML = '<div class="ad-banner" id="x">ad</div>'; await new Promise(r => setTimeout(r, wait)); return { style: f.contentWindow.getComputedStyle(d.getElementById('x')).display === 'none' }; }, wait);
+  await page.goto(base + '/'); await page.waitForLoadState('load');
+  check('protected site: about:blank frame protected', (await frameState(3000)).style === true);
+  await sw.evaluate((w) => chrome.storage.local.set({ whitelist: [...w, 'localhost'] }), wl);
+  await eventually(() => dynamicDomainsInclude('localhost'));
+  await page.goto(base + '/'); await page.waitForLoadState('load');
+  check('whitelisted site: about:blank frame NOT protected', (await frameState(1000)).style === false);
+  await sw.evaluate((w) => chrome.storage.local.set({ whitelist: w }), wl);
+  await eventually(async () => !(await dynamicDomainsInclude('localhost')));
 
   // Lớp phủ: ẩn chứ không xóa, click đi xuyên qua được
-  await page.goto(base + '/overlay'); await page.waitForTimeout(300);
-  await page.mouse.click(400, 300); await page.waitForTimeout(150);
-  check('invisible overlay hidden on click, node kept', await page.evaluate(() => { const o = document.getElementById('ov'); return !!o && getComputedStyle(o).display === 'none'; }));
-  await page.goto(base + '/suspect'); await page.waitForTimeout(700);
-  check('suspect overlay hidden, node kept', await page.evaluate(() => { const o = document.getElementById('s'); return !!o && getComputedStyle(o).display === 'none'; }));
+  await page.goto(base + '/overlay'); await page.waitForLoadState('load'); await page.waitForTimeout(300);
+  await page.mouse.click(400, 300);
+  const keptButHidden = (id) => eventually(() => page.evaluate((i) => { const o = document.getElementById(i); return !!o && getComputedStyle(o).display === 'none'; }, id));
+  check('invisible overlay hidden on click, node kept', await keptButHidden('ov'));
+  await page.goto(base + '/suspect');
+  check('suspect overlay hidden, node kept', await keptButHidden('s'));
 
   // Zapper
-  await page.goto(base + '/zap'); await page.waitForTimeout(300);
+  await page.goto(base + '/zap'); await page.waitForLoadState('load'); await page.waitForTimeout(300);
   const tabId = await sw.evaluate(() => chrome.tabs.query({ url: 'http://localhost/*' }).then(t => t[0].id));
   await sw.evaluate((id) => chrome.tabs.sendMessage(id, { action: 'start_element_zapper' }, { frameId: 0 }), tabId);
   await page.mouse.move(100, 100); await page.waitForTimeout(100);
-  await page.mouse.click(100, 100); await page.waitForTimeout(500);
-  check('zapper hides element, node kept', await page.evaluate(() => { const z = document.getElementById('z'); return !!z && getComputedStyle(z).display === 'none'; }));
+  await page.mouse.click(100, 100);
+  check('zapper hides element, node kept', await keptButHidden('z'));
 
   // Không còn gửi URL của link khi click
-  await page.goto(base + '/'); await page.waitForTimeout(300);
+  await page.goto(base + '/');
   const src = fs.readFileSync(path.join(EXT_DIR, 'bridge.js'), 'utf8');
   check('click message carries no url', !/user_trusted_click[^}]*url/.test(src));
 
   // Người gửi: content script (sender.url là trang web) không đổi được cấu hình; popup thì được
   const asSender = (sender) => sw.evaluate((s) => new Promise((res) => {
-    const t = setTimeout(() => res('no-response'), 500);
+    const t = setTimeout(() => res('no-response'), 3000);
     chrome.runtime.onMessage.dispatch({ action: 'set_temp_allow', host: 'evil-test.vn', minutes: 30 }, s, (r) => { clearTimeout(t); res(r); });
   }), sender);
   const paused = () => sw.evaluate(() => chrome.storage.local.get('tempAllow').then(r => Object.keys(r.tempAllow || {}).includes('evil-test.vn')));
@@ -73,9 +77,10 @@ runTest(async () => {
 
   // IPv6 trong whitelist không làm hỏng các thay đổi sau đó
   await sw.evaluate((w) => chrome.storage.local.set({ whitelist: [...w, '[::1]'] }), wl); await page.waitForTimeout(400);
-  await sw.evaluate((w) => chrome.storage.local.set({ whitelist: [...w, '[::1]', 'later-added.vn'] }), wl); await page.waitForTimeout(400);
-  check('whitelist still updates after IPv6 entry', await sw.evaluate(async () => (await chrome.declarativeNetRequest.getDynamicRules()).flatMap(r => r.condition.requestDomains || []).includes('later-added.vn')));
-  await sw.evaluate((w) => chrome.storage.local.set({ whitelist: w }), wl); await page.waitForTimeout(300);
+  await sw.evaluate((w) => chrome.storage.local.set({ whitelist: [...w, '[::1]', 'later-added.vn'] }), wl);
+  check('whitelist still updates after IPv6 entry', await eventually(() => dynamicDomainsInclude('later-added.vn')));
+  await sw.evaluate((w) => chrome.storage.local.set({ whitelist: w }), wl);
+  await eventually(async () => !(await dynamicDomainsInclude('later-added.vn')));
 
   check('no warnings from background', swWarnings.length === 0, swWarnings.join(' | ').slice(0, 300));
   check('no page errors', errs.length === 0, errs.join(' | '));

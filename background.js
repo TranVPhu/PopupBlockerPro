@@ -111,16 +111,15 @@ ready.then(async () => {
 function scheduleTempAllowAlarm() {
     const expiries = Object.values(tempAllow);
     if (expiries.length > 0) {
-        chrome.alarms.create(TEMP_ALLOW_ALARM, { when: Math.min(...expiries) });
-    } else {
-        chrome.alarms.clear(TEMP_ALLOW_ALARM);
+        return chrome.alarms.create(TEMP_ALLOW_ALARM, { when: Math.min(...expiries) });
     }
+    return chrome.alarms.clear(TEMP_ALLOW_ALARM);
 }
 
 async function saveTempAllow() {
     await chrome.storage.local.set({ tempAllow });
     await syncDnrAllowRules();
-    scheduleTempAllowAlarm();
+    await scheduleTempAllowAlarm();
 }
 
 async function pruneTempAllow() {
@@ -287,6 +286,8 @@ async function recordBlocked(tabId) {
 const trustedClicks = {};
 // Tab mới đang được theo dõi: URL đầu tiên có thể chỉ là bước đệm (about:blank, redirect cùng tên miền) để né kiểm tra
 const watchedTabs = {};
+// Tab mới chưa đăng ký xong: redirect có thể hoàn tất trước đó, VD lúc service worker vừa thức dậy
+const pendingWatches = {};
 
 function isUserInitiated(tabId) {
     const trusted = trustedClicks[tabId];
@@ -368,7 +369,14 @@ function isBrowserInternalUrl(url) {
 }
 
 // Chặn Tab tự động nhảy mở ra mà không có cử chỉ click thực của người dùng
-chrome.webNavigation.onCreatedNavigationTarget.addListener(async (details) => {
+chrome.webNavigation.onCreatedNavigationTarget.addListener((details) => {
+    const pending = watchNewTab(details).finally(() => {
+        if (pendingWatches[details.tabId] === pending) delete pendingWatches[details.tabId];
+    });
+    pendingWatches[details.tabId] = pending;
+});
+
+async function watchNewTab(details) {
     await ready;
     if (!isEnabled) return;
     try {
@@ -395,7 +403,7 @@ chrome.webNavigation.onCreatedNavigationTarget.addListener(async (details) => {
     } catch (err) {
         pbLogWarning('Không xử lý được tab mới')(err);
     }
-});
+}
 
 // Người dùng tự gõ địa chỉ, chọn bookmark... trong tab mới thì không phải do trang web điều khiển
 const USER_DRIVEN_TRANSITIONS = new Set(['typed', 'auto_bookmark', 'generated', 'keyword', 'keyword_generated', 'reload', 'start_page']);
@@ -403,11 +411,13 @@ const USER_DRIVEN_TRANSITIONS = new Set(['typed', 'auto_bookmark', 'generated', 
 // Dùng onCommitted vì sự kiện này cho biết URL cuối cùng sau mọi redirect phía server
 chrome.webNavigation.onCommitted.addListener(async (details) => {
     if (details.frameId !== 0) return;
+    // Đọc trước khi chờ: listener phía dưới xóa dấu vết click ngay khi commit
+    const userDriven = USER_DRIVEN_TRANSITIONS.has(details.transitionType) || isUserInitiated(details.tabId);
+    await pendingWatches[details.tabId];
     const watch = watchedTabs[details.tabId];
     if (!watch || details.url.startsWith('about:')) return;
     if (Date.now() - watch.time > WATCH_WINDOW_MS
-        || USER_DRIVEN_TRANSITIONS.has(details.transitionType)
-        || isUserInitiated(details.tabId)
+        || userDriven
         || isBrowserInternalUrl(details.url)) {
         delete watchedTabs[details.tabId];
         return;

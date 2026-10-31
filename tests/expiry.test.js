@@ -1,5 +1,5 @@
 // Tạm bỏ chặn phải tự hết hạn bằng alarm thật
-const { launchExtension, createChecker, sendAsPopup, runTest } = require('./helpers');
+const { eventually, launchExtension, createChecker, sendAsPopup, runTest } = require('./helpers');
 
 const { check, finish } = createChecker();
 
@@ -11,12 +11,15 @@ runTest(async () => {
         alarm: !!(await chrome.alarms.get('pb_temp_allow_expiry'))
     }));
 
-    await sendAsPopup(sw, { action: 'set_temp_allow', host: 'a-test.vn', minutes: 0.05 });
+    await sendAsPopup(sw, { action: 'set_temp_allow', host: 'a-test.vn', minutes: 0.2 });
     const during = await state();
     check('paused: stored, allow rule added, alarm set', 'a-test.vn' in during.stored && during.rule && during.alarm, JSON.stringify(during));
 
-    await new Promise((r) => setTimeout(r, 6000));
-    const after = await state();
+    let after;
+    await eventually(async () => {
+        after = await state();
+        return Object.keys(after.stored).length === 0 && !after.rule && !after.alarm;
+    }, 40000);
     check('expired: stored cleared, rule removed, alarm gone', Object.keys(after.stored).length === 0 && !after.rule && !after.alarm, JSON.stringify(after));
 
     await ctx.close();

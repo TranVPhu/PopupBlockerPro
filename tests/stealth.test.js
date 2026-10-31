@@ -1,6 +1,6 @@
 // Bộ lọc CSS phải bền trước trang web: không gỡ được, không ghi đè được, và trang khó nhận biết extension
 const http = require('http');
-const { launchExtension, createChecker, sendAsPopup, runTest } = require('./helpers');
+const { eventually, launchExtension, createChecker, sendAsPopup, runTest } = require('./helpers');
 
 const { check, finish } = createChecker();
 
@@ -22,13 +22,14 @@ runTest(async () => {
     const errors = [];
     page.on('pageerror', (e) => errors.push(e.message));
     const display = (id) => page.evaluate((i) => getComputedStyle(document.getElementById(i)).display, id);
+    const displayBecomes = (id, value) => eventually(async () => (await display(id)) === value);
+    const noStyleElement = () => eventually(() => page.evaluate(() => !document.getElementById('pb-cosmetic-style')));
 
     await page.goto(base + '/');
-    await page.waitForTimeout(600);
 
-    check('ad hidden', (await display('ad')) === 'none');
+    check('ad hidden', await displayBecomes('ad', 'none'));
     check('normal content visible', (await display('content')) === 'block');
-    check('no style element left for page to find', await page.evaluate(() => !document.getElementById('pb-cosmetic-style')));
+    check('no style element left for page to find', await noStyleElement());
     check('page !important cannot override filter', (await display('fight')) === 'none');
     await page.evaluate(() => { document.getElementById('ad').style.setProperty('display', 'block', 'important'); });
     check('inline !important cannot override filter', (await display('ad')) === 'none');
@@ -50,37 +51,34 @@ runTest(async () => {
         document.body.appendChild(f);
         const d = f.contentDocument;
         d.body.innerHTML = '<div class="ad-banner" id="x">ad</div>';
-        await new Promise((r) => setTimeout(r, 700));
+        for (let i = 0; i < 100 && f.contentWindow.getComputedStyle(d.getElementById('x')).display !== 'none'; i++) {
+            await new Promise((r) => setTimeout(r, 100));
+        }
         return f.contentWindow.getComputedStyle(d.getElementById('x')).display === 'none';
     }));
 
     // Bật/tắt phải áp dụng ngay, và lệnh gỡ CSS phải khớp nội dung đã chèn
     await page.goto(base + '/');
-    await page.waitForTimeout(500);
+    await displayBecomes('ad', 'none');
+    await noStyleElement();
     await sendAsPopup(sw, { action: 'set_temp_allow', host: 'localhost', minutes: 30 });
-    await page.waitForTimeout(500);
-    check('pausing removes filter without reload', (await display('ad')) === 'block');
+    check('pausing removes filter without reload', await displayBecomes('ad', 'block'));
     await sendAsPopup(sw, { action: 'set_temp_allow', host: 'localhost', minutes: 0 });
-    await page.waitForTimeout(500);
-    check('resuming restores filter without reload', (await display('ad')) === 'none');
+    check('resuming restores filter without reload', await displayBecomes('ad', 'none'));
 
     // Phần tử người dùng tự ẩn cũng phải lên kịp, và gỡ được
     await sw.evaluate(() => chrome.storage.local.set({ customHidden: { localhost: ['#content'] } }));
-    await page.waitForTimeout(500);
-    check('custom hidden element applied live', (await display('content')) === 'none');
+    check('custom hidden element applied live', await displayBecomes('content', 'none'));
     await sw.evaluate(() => chrome.storage.local.set({ customHidden: {} }));
-    await page.waitForTimeout(500);
-    check('custom hidden element removed live', (await display('content')) === 'block');
+    check('custom hidden element removed live', await displayBecomes('content', 'block'));
     check('ad stays hidden after custom rule removed', (await display('ad')) === 'none');
-    check('still no style element after updates', await page.evaluate(() => !document.getElementById('pb-cosmetic-style')));
+    check('still no style element after updates', await noStyleElement());
 
     // Tắt toàn hệ thống
     await sw.evaluate(() => chrome.storage.local.set({ enabled: false }));
-    await page.waitForTimeout(500);
-    check('global off removes filter', (await display('ad')) === 'block');
+    check('global off removes filter', await displayBecomes('ad', 'block'));
     await sw.evaluate(() => chrome.storage.local.set({ enabled: true }));
-    await page.waitForTimeout(500);
-    check('global on restores filter', (await display('ad')) === 'none');
+    check('global on restores filter', await displayBecomes('ad', 'none'));
 
     // Hàm bọc vẫn chạy đúng
     check('guarded click still works on non-link', await page.evaluate(() => {

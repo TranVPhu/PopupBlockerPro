@@ -1,8 +1,7 @@
 const jsQR = require('jsqr');
 const http = require('http');
 const fs = require('fs');
-const path = require('path');
-const { EXT_DIR, launchExtension, createChecker, sendAsPopup, runTest } = require('./helpers');
+const { launchExtension, createChecker, runTest } = require('./helpers');
 
 const { check, finish } = createChecker();
 
@@ -37,7 +36,7 @@ runTest(async () => {
     await popup.goto(`chrome-extension://${extId}/popup.html`);
     await web.bringToFront();
     await popup.reload();
-    await popup.waitForFunction(() => document.getElementById('currentDomain').textContent.includes('localhost'), null, { timeout: 5000 });
+    await popup.waitForFunction(() => document.getElementById('currentDomain').textContent.includes('localhost'), null, { polling: 100, timeout: 30000 });
     check('popup shows QR button on http page', await popup.isVisible('#qrBtn'));
     await popup.setViewportSize({ width: 280, height: 420 });
 
@@ -87,10 +86,10 @@ runTest(async () => {
     await ctx.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: `chrome-extension://${extId}` }).catch(() => { });
     await qr.bringToFront();
     await qr.click('#copyBtn');
-    await qr.waitForFunction(() => /Đã sao chép|Không sao chép/.test(document.getElementById('copyBtn').textContent));
+    await qr.waitForFunction(() => /Đã sao chép|Không sao chép/.test(document.getElementById('copyBtn').textContent), null, { polling: 100 });
     const label = await qr.textContent('#copyBtn');
     check('copy image', label.includes('Đã sao chép'), label);
-    await qr.waitForFunction(() => document.getElementById('copyBtn').textContent.includes('Sao chép ảnh'), null, { timeout: 3000 });
+    await qr.waitForFunction(() => document.getElementById('copyBtn').textContent.includes('Sao chép ảnh'), null, { polling: 100, timeout: 15000 });
     check('copy label restored', true);
 
     // Không tạo QR ở trang rỗng tham số
@@ -99,6 +98,7 @@ runTest(async () => {
     check('no url param: prompt shown', await empty.isVisible('#message'));
 
     // Menu chuột phải: không bấm được menu native, nên gọi đúng hành động mà handler thực hiện
+    const nextPage = ctx.waitForEvent('page', { timeout: 30000 }).catch(() => null);
     const dispatched = await sw.evaluate((u) => {
         if (chrome.contextMenus.onClicked.dispatch) {
             chrome.contextMenus.onClicked.dispatch({ menuItemId: 'create_link_qr', linkUrl: u }, { id: 1 });
@@ -107,7 +107,7 @@ runTest(async () => {
         return false;
     }, 'https://example.com/menu?x=1&y=2');
     if (dispatched) {
-        const win = await ctx.waitForEvent('page', { timeout: 5000 });
+        const win = await nextPage;
         await win.waitForSelector('#qrCanvas');
         check('context menu handler opens window for link', (await decodeCanvas(win)) === 'https://example.com/menu?x=1&y=2', win.url());
     } else {
