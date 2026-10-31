@@ -2,6 +2,11 @@
 const PB_DEFAULT_WHITELIST = ['google.com', 'youtube.com', 'facebook.com', 'github.com'];
 const PB_TEMP_ALLOW_MINUTES = 30;
 
+// Dùng cho các lỗi đáng chú ý (rule mạng, lưu trữ...), để không thất bại trong im lặng
+function pbLogWarning(context) {
+    return (err) => console.warn(`[Popup Blocker Pro] ${context}:`, err);
+}
+
 function pbHostInList(host, list) {
     return list.some(domain => host === domain || host.endsWith('.' + domain));
 }

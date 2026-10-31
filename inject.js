@@ -29,10 +29,13 @@
     let lastPopupTimestamp = 0;
 
     // 1. Ghi đè & Kiểm soát window.open thông minh (Học hỏi từ uBlock Origin)
+    // Bọc bằng Proxy để Function.prototype.toString vẫn trả về "[native code]", trang khó nhận biết extension
     function createGuardedOpen(targetWin, nativeOpen) {
-        return function (url, target, features) {
+        return new Proxy(nativeOpen, {
+            apply(_, __, args) {
+            const url = args[0];
             if (!isProtectionActive()) {
-                return nativeOpen.apply(targetWin, arguments);
+                return Reflect.apply(nativeOpen, targetWin, args);
             }
 
             // Kiểm tra cử chỉ người dùng qua navigator.userActivation (chuẩn Chromium)
@@ -68,7 +71,7 @@
 
             // Chống chiêu trò Popunder (làm mờ popup ngay sau khi mở)
             try {
-                const realWin = nativeOpen.apply(targetWin, arguments);
+                const realWin = Reflect.apply(nativeOpen, targetWin, args);
                 if (realWin) {
                     try {
                         realWin.focus();
@@ -78,7 +81,8 @@
             } catch (err) {
                 return createDummyWindow();
             }
-        };
+            }
+        });
     }
 
     function lockWindowOpen(win, nativeOpen) {
@@ -108,11 +112,13 @@
             Object.defineProperty(Ctor.prototype, 'contentWindow', {
                 configurable: winDesc.configurable,
                 enumerable: winDesc.enumerable,
-                get: function () {
-                    const win = winDesc.get.call(this);
-                    guardFrameWindow(win);
-                    return win;
-                }
+                get: new Proxy(winDesc.get, {
+                    apply(nativeGet, thisArg) {
+                        const win = Reflect.apply(nativeGet, thisArg, []);
+                        guardFrameWindow(win);
+                        return win;
+                    }
+                })
             });
         }
         const docDesc = Object.getOwnPropertyDescriptor(Ctor.prototype, 'contentDocument');
@@ -120,11 +126,13 @@
             Object.defineProperty(Ctor.prototype, 'contentDocument', {
                 configurable: docDesc.configurable,
                 enumerable: docDesc.enumerable,
-                get: function () {
-                    const doc = docDesc.get.call(this);
-                    if (doc) guardFrameWindow(doc.defaultView);
-                    return doc;
-                }
+                get: new Proxy(docDesc.get, {
+                    apply(nativeGet, thisArg) {
+                        const doc = Reflect.apply(nativeGet, thisArg, []);
+                        if (doc) guardFrameWindow(doc.defaultView);
+                        return doc;
+                    }
+                })
             });
         }
     });
@@ -145,28 +153,30 @@
     Object.defineProperty(HTMLElement.prototype, 'click', {
         configurable: false,
         writable: false,
-        value: function () {
-            if (isProtectionActive() && this.tagName === 'A') {
-                const href = this.getAttribute('href') || '';
-                const isDownload = this.hasAttribute('download') ||
-                    href.startsWith('blob:') ||
-                    href.startsWith('data:');
+        value: new Proxy(originalClick, {
+            apply(nativeClick, element, args) {
+                if (isProtectionActive() && element && element.tagName === 'A') {
+                    const href = element.getAttribute('href') || '';
+                    const isDownload = element.hasAttribute('download') ||
+                        href.startsWith('blob:') ||
+                        href.startsWith('data:');
 
-                // Cho phép 100% các hành vi xuất/tải file từ web app (Google Docs, Canvas, Excel, PDF...)
-                if (isDownload) {
-                    return originalClick.apply(this, arguments);
-                }
+                    // Cho phép 100% các hành vi xuất/tải file từ web app (Google Docs, Canvas, Excel, PDF...)
+                    if (isDownload) {
+                        return Reflect.apply(nativeClick, element, args);
+                    }
 
-                const hasUserGesture = navigator.userActivation && navigator.userActivation.isActive;
-                // Nếu JS tự động bấm vào link mở tab mới mà không có tương tác người dùng -> Chặn!
-                if (!hasUserGesture && (this.target === '_blank' || !this.isConnected)) {
-                    console.log('[Popup Blocker Pro] Đã chặn JS tự động click mở tab ẩn:', href);
-                    reportBlocked();
-                    return;
+                    const hasUserGesture = navigator.userActivation && navigator.userActivation.isActive;
+                    // Nếu JS tự động bấm vào link mở tab mới mà không có tương tác người dùng -> Chặn!
+                    if (!hasUserGesture && (element.target === '_blank' || !element.isConnected)) {
+                        console.log('[Popup Blocker Pro] Đã chặn JS tự động click mở tab ẩn:', href);
+                        reportBlocked();
+                        return;
+                    }
                 }
+                return Reflect.apply(nativeClick, element, args);
             }
-            return originalClick.apply(this, arguments);
-        }
+        })
     });
 
     // 3. Chặn sự kiện click giả mạo & Chống Reverse Tabnabbing (Tab Hijacking)

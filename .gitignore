@@ -5,3 +5,4 @@ build
 CaiDatChanPopup.spec
 _metadata/
 scratch/
+node_modules/

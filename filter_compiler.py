@@ -8,9 +8,10 @@ import json
 import tempfile
 import urllib.request
 
-# Nguồn danh sách EasyList quốc tế, ABPVN (Việt Nam) và Fanboy Cookie/Annoyance
+# Nguồn danh sách EasyList quốc tế, EasyPrivacy (trình theo dõi), ABPVN (Việt Nam) và Fanboy Cookie/Annoyance
 FILTER_LIST_URLS = [
     "https://easylist.to/easylist/easylist.txt",
+    "https://easylist.to/easylist/easyprivacy.txt",
     "https://raw.githubusercontent.com/abpvn/abpvn/master/filter/abpvn.txt",
     "https://secure.fanboy.co.nz/fanboy-cookiemonster.txt"
 ]
@@ -28,10 +29,12 @@ SEED_POPUP_DOMAINS = [
     "exoclick.com", "clickadu.com", "galaksion.com"
 ]
 
-# EasyList + ABPVN hiện có hơn 40 nghìn tên miền. Giới hạn thấp hơn sẽ cắt mất các mạng lớn (pubmatic, rubiconproject...)
-MAX_DOMAINS = 60000
+# Các nguồn lọc hiện có khoảng 60 nghìn tên miền. Giới hạn thấp hơn sẽ cắt mất các mạng lớn (pubmatic, rubiconproject...)
+MAX_DOMAINS = 100000
 # Ít hơn ngưỡng này coi như tải bộ lọc lỗi -> giữ nguyên rules.json cũ thay vì ghi đè bằng bản rỗng
 MIN_DOMAINS = 1000
+# Chế độ strict (cập nhật tự động, không có ai xem): số tên miền tụt quá mức này coi như nguồn lọc có vấn đề
+MAX_SHRINK_RATIO = 0.3
 # Mỗi rule chứa 500 domain để tối ưu tốc độ khớp lệnh của Chromium
 CHUNK_SIZE = 500
 
@@ -40,7 +43,7 @@ DOMAIN_RULE_REGEX = re.compile(r"^\|\|([a-z0-9.-]+\.[a-z]{2,})\^(?:\$(.+))?$")
 THIRD_PARTY_OPTIONS = {"third-party", "3p"}
 POPUP_OPTIONS = {"popup"} | THIRD_PARTY_OPTIONS
 
-RESOURCE_TYPES = ["script", "sub_frame", "image", "xmlhttprequest", "media"]
+RESOURCE_TYPES = ["script", "sub_frame", "image", "xmlhttprequest", "media", "ping"]
 
 # Quy tắc ngoại lệ (@@) phải có priority cao hơn quy tắc chặn (1-2) nhưng thấp hơn whitelist của người dùng (100).
 # Dải id riêng giúp background.js phân biệt lượt "cho phép" với lượt "chặn" khi đếm.
@@ -109,6 +112,73 @@ BASE_RULES = [
 ]
 
 
+def parse_rule_options(pattern, options):
+    """Chuyển pattern và tùy chọn sau dấu $ thành điều kiện DNR. Trả về (condition, types, excluded, flags) hoặc None."""
+    condition = {"urlFilter": pattern}
+    types, excluded = [], []
+    flags = set()
+    for opt in filter(None, options.split(',')):
+        negated = opt.startswith('~')
+        name = opt[1:] if negated else opt
+        if opt.startswith('domain='):
+            domains = opt[len('domain='):].split('|')
+            if not all(DOMAIN_NAME_REGEX.match(d.lstrip('~')) for d in domains):
+                return None
+            included = [d for d in domains if not d.startswith('~')]
+            not_included = [d[1:] for d in domains if d.startswith('~')]
+            if included:
+                condition["initiatorDomains"] = included
+            if not_included:
+                condition["excludedInitiatorDomains"] = not_included
+        elif opt in ("third-party", "3p"):
+            condition["domainType"] = "thirdParty"
+        elif opt in ("~third-party", "first-party", "1p"):
+            condition["domainType"] = "firstParty"
+        elif opt == "match-case":
+            condition["isUrlFilterCaseSensitive"] = True
+        elif name in EXCEPTION_TYPE_MAP:
+            (excluded if negated else types).append(EXCEPTION_TYPE_MAP[name])
+        elif opt in ("popup", "document", "generichide"):
+            flags.add(opt)
+        else:
+            return None  # csp, removeparam, redirect... không có tương đương trong DNR
+    return condition, types, excluded, flags
+
+
+def host_of_pattern(pattern):
+    """Phần tên miền của pattern ||host/path, hoặc None nếu có ký tự đại diện."""
+    match = re.match(r"^\|\|([a-z0-9.-]+)(?:[/^?:]|$)", pattern)
+    return match.group(1) if match else None
+
+
+def is_covered_by(host, domains):
+    parts = host.split('.')
+    return any('.'.join(parts[i:]) in domains for i in range(len(parts)))
+
+
+def parse_block_rule_lines(lines, block_rules):
+    """Quy tắc ||host có đường dẫn hoặc tùy chọn. Dạng khớp chuỗi con (-ad-sidebar.) cố ý bỏ qua vì dễ chặn nhầm."""
+    for line in lines:
+        line = line.strip()
+        if not line.startswith('||') or line.startswith('||*') or not line.isascii() or '##' in line or '#@#' in line:
+            continue
+        if DOMAIN_RULE_REGEX.match(line) and (not line.partition('$')[2] or POPUP_OPTIONS.issuperset(line.partition('$')[2].split(','))):
+            continue  # Đã xử lý trong parse_filter_lines
+        pattern, _, options = line.partition('$')
+        parsed = parse_rule_options(pattern, options)
+        if not parsed:
+            continue
+        condition, types, excluded, flags = parsed
+        if flags:
+            continue  # $document, $popup là chặn điều hướng, không phải tài nguyên trong trang
+        if types:
+            condition["resourceTypes"] = types
+        elif excluded:
+            condition["excludedResourceTypes"] = excluded
+        rule = {"action": {"type": "block"}, "condition": condition}
+        block_rules[json.dumps(rule, sort_keys=True)] = rule
+
+
 def parse_filter_lines(lines, any_party, third_party, popup):
     """Phân loại tên miền vào 3 nhóm (dict dùng như set có thứ tự)."""
     for line in lines:
@@ -138,34 +208,10 @@ def parse_exception_line(line):
     if pattern.startswith('/') and pattern.endswith('/') and len(pattern) > 1:
         return None  # Regex của adblocker khác cú pháp RE2 của DNR
 
-    condition = {"urlFilter": pattern}
-    types, excluded = [], []
-    flags = set()
-    for opt in filter(None, options.split(',')):
-        negated = opt.startswith('~')
-        name = opt[1:] if negated else opt
-        if opt.startswith('domain='):
-            domains = opt[len('domain='):].split('|')
-            if not all(DOMAIN_NAME_REGEX.match(d.lstrip('~')) for d in domains):
-                return None
-            included = [d for d in domains if not d.startswith('~')]
-            not_included = [d[1:] for d in domains if d.startswith('~')]
-            if included:
-                condition["initiatorDomains"] = included
-            if not_included:
-                condition["excludedInitiatorDomains"] = not_included
-        elif opt in ("third-party", "3p"):
-            condition["domainType"] = "thirdParty"
-        elif opt in ("~third-party", "first-party", "1p"):
-            condition["domainType"] = "firstParty"
-        elif opt == "match-case":
-            condition["isUrlFilterCaseSensitive"] = True
-        elif name in EXCEPTION_TYPE_MAP:
-            (excluded if negated else types).append(EXCEPTION_TYPE_MAP[name])
-        elif opt in ("popup", "document", "generichide"):
-            flags.add(opt)
-        else:
-            return None  # csp, removeparam... không có tương đương trong DNR
+    parsed = parse_rule_options(pattern, options)
+    if not parsed:
+        return None
+    condition, types, excluded, flags = parsed
 
     host_match = HOST_ONLY_PATTERN_REGEX.match(pattern)
     if "generichide" in flags:
@@ -244,7 +290,7 @@ def download_list(url, timeout=20):
         return response.read().decode('utf-8', errors='ignore').splitlines()
 
 
-def build_rules(any_party, third_party, exceptions=()):
+def build_rules(any_party, third_party, exceptions=(), block_rules=()):
     rules = [dict(r) for r in BASE_RULES]
     rule_id = 10
     for domains, third_party_only in ((any_party, False), (third_party, True)):
@@ -263,6 +309,9 @@ def build_rules(any_party, third_party, exceptions=()):
                 "condition": condition
             })
             rule_id += 1
+    for block_rule in block_rules:
+        rules.append({"id": rule_id, "priority": 1, **block_rule})
+        rule_id += 1
     for offset, exception in enumerate(exceptions):
         rules.append({"id": EXCEPTION_RULE_ID_START + offset, "priority": EXCEPTION_PRIORITY, **exception})
     return rules
@@ -290,19 +339,30 @@ def write_json_atomic(path, data):
     write_text_atomic(path, to_compact_json(data))
 
 
-def compile_filters(ext_dir, progress=None, max_domains=MAX_DOMAINS):
+def count_existing_domains(ext_dir):
+    try:
+        with open(os.path.join(ext_dir, "rules.json"), encoding="utf-8") as f:
+            return sum(len(r["condition"].get("requestDomains", [])) for r in json.load(f))
+    except (OSError, ValueError, KeyError, TypeError):
+        return 0
+
+
+def compile_filters(ext_dir, progress=None, max_domains=MAX_DOMAINS, strict=False):
     """Tải toàn bộ nguồn lọc và ghi rules.json, popup_domains.json, cosmetic_rules.js vào ext_dir.
 
     progress(index, total, url, error) được gọi sau mỗi nguồn (error = None nếu thành công).
     Ném RuntimeError (và giữ nguyên file cũ) nếu thu được quá ít tên miền.
+    strict=True: còn từ chối khi có bất kỳ nguồn nào lỗi hoặc số tên miền tụt mạnh so với bản hiện tại.
     """
     any_party = dict.fromkeys(SEED_DOMAINS, True)
     third_party = {}
     popup = dict.fromkeys(SEED_POPUP_DOMAINS, True)
     exceptions = {}
+    block_rules = {}
     popup_exceptions = set()
     generichide = set()
     cosmetic = None
+    failed_urls = []
 
     for idx, url in enumerate(FILTER_LIST_URLS, start=1):
         error = None
@@ -310,10 +370,12 @@ def compile_filters(ext_dir, progress=None, max_domains=MAX_DOMAINS):
             lines = download_list(url)
             parse_filter_lines(lines, any_party, third_party, popup)
             parse_exception_lines(lines, exceptions, popup_exceptions, generichide)
+            parse_block_rule_lines(lines, block_rules)
             if url == COSMETIC_SOURCE_URL:
                 cosmetic = parse_cosmetic_lines(lines + EXTRA_COSMETIC_LINES)
         except Exception as e:
             error = e
+            failed_urls.append(url)
         if progress:
             progress(idx, len(FILTER_LIST_URLS), url, error)
 
@@ -328,7 +390,20 @@ def compile_filters(ext_dir, progress=None, max_domains=MAX_DOMAINS):
             f"Có thể mất kết nối mạng - đã giữ nguyên rules.json cũ."
         )
 
-    rules = build_rules(sorted(any_list), sorted(third_list), list(exceptions.values()))
+    if strict:
+        if failed_urls:
+            raise RuntimeError(f"Không tải được: {', '.join(failed_urls)} - đã giữ nguyên bộ lọc cũ.")
+        existing = count_existing_domains(ext_dir)
+        if total < existing * (1 - MAX_SHRINK_RATIO):
+            raise RuntimeError(f"Số tên miền tụt từ {existing} xuống {total} - đã giữ nguyên bộ lọc cũ.")
+
+    # Bỏ các quy tắc thừa: tên miền của chúng đã bị chặn toàn bộ
+    any_set = set(any_list)
+    needed_block_rules = [
+        rule for rule in block_rules.values()
+        if not is_covered_by(host_of_pattern(rule["condition"]["urlFilter"]) or '', any_set)
+    ]
+    rules = build_rules(sorted(any_list), sorted(third_list), list(exceptions.values()), needed_block_rules)
     popup_list = sorted(d for d in popup if d not in popup_exceptions)
     write_json_atomic(os.path.join(ext_dir, "rules.json"), rules)
     write_json_atomic(os.path.join(ext_dir, "popup_domains.json"), popup_list)
@@ -347,6 +422,7 @@ def compile_filters(ext_dir, progress=None, max_domains=MAX_DOMAINS):
         "third_party_count": len(third_list),
         "popup_count": len(popup_list),
         "exception_count": len(exceptions),
+        "block_rule_count": len(needed_block_rules),
         "cosmetic_count": (
             len(cosmetic["generic"]) + sum(len(v) for v in cosmetic["sites"].values())
             if cosmetic is not None else 0

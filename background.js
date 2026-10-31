@@ -31,7 +31,7 @@ function syncDnrState(enabled) {
     if (!chrome.declarativeNetRequest || !chrome.declarativeNetRequest.updateEnabledRulesets) return;
     chrome.declarativeNetRequest.updateEnabledRulesets({
         [enabled ? 'enableRulesetIds' : 'disableRulesetIds']: ['popup_ad_rules']
-    }).catch(() => { });
+    }).catch(pbLogWarning('Không đổi được trạng thái bộ lọc'));
 }
 
 // Whitelist cố định + các trang đang tạm bỏ chặn
@@ -41,7 +41,8 @@ function getAllowedDomains() {
 
 function syncDnrAllowRules() {
     if (!chrome.declarativeNetRequest || !chrome.declarativeNetRequest.updateDynamicRules) return Promise.resolve();
-    const domains = getAllowedDomains();
+    // DNR từ chối cả lượt cập nhật nếu có 1 tên miền sai dạng (VD: IPv6 "[::1]"), làm mọi thay đổi whitelist về sau thất bại
+    const domains = getAllowedDomains().filter(domain => /^[a-z0-9.-]+$/.test(domain));
     const newRules = [];
     if (isEnabled && domains.length > 0) {
         // Khớp theo tên miền của chính trang (requestDomains), vì trang mở từ thanh địa chỉ không có initiator
@@ -67,13 +68,13 @@ function syncDnrAllowRules() {
     return chrome.declarativeNetRequest.updateDynamicRules({
         removeRuleIds: [90001, 90002],
         addRules: newRules
-    }).catch(() => { });
+    }).catch(pbLogWarning('Không cập nhật được rule cho phép'));
 }
 
 // Badge do Chrome tự đếm: gồm request bị DNR chặn + popup/tab bị chặn (cộng thêm qua tabUpdate)
 function syncBadgeMode(enabled) {
     if (!chrome.declarativeNetRequest.setExtensionActionOptions) return;
-    chrome.declarativeNetRequest.setExtensionActionOptions({ displayActionCountAsBadgeText: enabled }).catch(() => { });
+    chrome.declarativeNetRequest.setExtensionActionOptions({ displayActionCountAsBadgeText: enabled }).catch(pbLogWarning('Không đổi được chế độ badge'));
 }
 
 // Service worker có thể bị đánh thức bởi một sự kiện -> mọi xử lý phải chờ nạp xong trạng thái,
@@ -90,7 +91,9 @@ const ready = (async () => {
     try {
         const resp = await fetch(chrome.runtime.getURL('popup_domains.json'));
         popupDomains = new Set(await resp.json());
-    } catch (_) { }
+    } catch (err) {
+        pbLogWarning('Không nạp được popup_domains.json')(err);
+    }
 })();
 
 ready.then(async () => {
@@ -153,7 +156,10 @@ function syncDnrCounts() {
                 info.rule.rulesetId !== '_dynamic' && info.rule.ruleId < EXCEPTION_RULE_ID_START
             ).length;
             await chrome.storage.local.set({ blockedCount, dnrLastSeen });
-        } catch (_) { } // Vượt quota gọi API: lần sau đọc tiếp từ dnrLastSeen
+        } catch (err) {
+            // Thường do vượt quota gọi API: lần sau đọc tiếp từ dnrLastSeen
+            pbLogWarning('Không đọc được số lượt chặn')(err);
+        }
     });
     return dnrCountChain;
 }
@@ -231,6 +237,18 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 });
 
 // --- LOGIC CHẶN TAB POPUP ---
+// Lệnh thay đổi cấu hình chỉ nhận từ trang của extension (popup), không nhận từ content script chạy trong trang web.
+// sender.url do trình duyệt điền nên tiến trình trang bị chiếm cũng không giả mạo được.
+const CLICK_WINDOW_MS = 3000;
+// Menu chuột phải có thể mở khá lâu trước khi người dùng chọn một mục
+const CONTEXT_MENU_WINDOW_MS = 60000;
+// Popup quảng cáo thường qua vài bước chuyển hướng rồi mới tới trang đích
+const WATCH_WINDOW_MS = 15000;
+
+function isFromExtensionPage(sender) {
+    return !!sender.url && sender.url.startsWith(chrome.runtime.getURL(''));
+}
+
 function normalizeHost(hostname) {
     return (hostname || '').replace(/^www\./, '');
 }
@@ -267,26 +285,28 @@ async function recordBlocked(tabId) {
 
 // Ghi nhận các cú click chuột tin cậy từ người dùng (tránh đóng nhầm tab)
 const trustedClicks = {};
-// Tab mới mở ở about:blank, chờ lần điều hướng kế tiếp để kiểm tra (chiêu mở trống rồi mới đổi location)
-const pendingPopups = {};
+// Tab mới đang được theo dõi: URL đầu tiên có thể chỉ là bước đệm (about:blank, redirect cùng tên miền) để né kiểm tra
+const watchedTabs = {};
 
-function isUserInitiated(sourceTabId) {
-    const trusted = trustedClicks[sourceTabId];
-    return !!trusted && (Date.now() - trusted.time < 3000);
+function isUserInitiated(tabId) {
+    const trusted = trustedClicks[tabId];
+    return !!trusted && trusted.interactive && (Date.now() - trusted.time < trusted.windowMs);
 }
 
 // Xóa dữ liệu theo dõi khi đóng Tab
 chrome.tabs.onRemoved.addListener((tabId) => {
     delete trustedClicks[tabId];
-    delete pendingPopups[tabId];
+    delete watchedTabs[tabId];
 });
 
 // Lắng nghe yêu cầu thống kê hoặc thông báo chặn từ content script
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+    if (sender.id !== chrome.runtime.id) return;
     if (msg.action === 'user_trusted_click' && sender.tab && sender.tab.id) {
         trustedClicks[sender.tab.id] = {
-            time: msg.timestamp || Date.now(),
-            url: msg.url || ''
+            time: Date.now(),
+            interactive: msg.interactive === true,
+            windowMs: msg.contextMenu ? CONTEXT_MENU_WINDOW_MS : CLICK_WINDOW_MS
         };
     } else if (msg.action === 'ad_blocked' && sender.tab && sender.tab.id) {
         recordBlocked(sender.tab.id);
@@ -299,15 +319,32 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             });
         });
         return true;
-    } else if (msg.action === 'set_temp_allow' && msg.host) {
+    } else if (msg.action === 'update_cosmetic_css' && sender.tab && sender.tab.id) {
+        updateCosmeticCss(sender, msg).then(ok => sendResponse({ ok }));
+        return true;
+    } else if (msg.action === 'set_temp_allow' && typeof msg.host === 'string' && msg.host && isFromExtensionPage(sender)) {
         // Phản hồi sau khi rule mạng đã cập nhật, để popup tải lại trang đúng trạng thái mới
         setTempAllow(msg.host, msg.minutes).then(() => sendResponse({ done: true }));
         return true;
     }
 });
 
+// Chèn CSS bằng origin USER để trang không thấy, không gỡ và không ghi đè được
+async function updateCosmeticCss(sender, { css, previous }) {
+    const target = sender.documentId
+        ? { tabId: sender.tab.id, documentIds: [sender.documentId] }
+        : { tabId: sender.tab.id, frameIds: [sender.frameId] };
+    try {
+        if (previous) await chrome.scripting.removeCSS({ target, css: previous, origin: 'USER' });
+        if (css) await chrome.scripting.insertCSS({ target, css, origin: 'USER' });
+        return true;
+    } catch (_) {
+        return false; // Frame đã đóng hoặc không cho chèn: content script giữ lại thẻ <style> làm dự phòng
+    }
+}
+
 // Quyết định đóng hay giữ tab mới dựa trên URL đích thật sự
-async function judgeNewTab(tabId, sourceTabId, sourceHost, url, userInitiated) {
+async function judgeNewTab(tabId, { sourceTabId, sourceHost, userInitiated }, url) {
     const targetHost = new URL(url).hostname;
     if (!targetHost) return;
 
@@ -320,6 +357,7 @@ async function judgeNewTab(tabId, sourceTabId, sourceHost, url, userInitiated) {
     const isCrossSite = normalizeHost(sourceHost) !== normalizeHost(targetHost);
 
     if (isKnownPopupAd || (!userInitiated && isCrossSite)) {
+        delete watchedTabs[tabId];
         await chrome.tabs.remove(tabId);
         recordBlocked(sourceTabId);
     }
@@ -341,35 +379,51 @@ chrome.webNavigation.onCreatedNavigationTarget.addListener(async (details) => {
         if (isHostAllowed(sourceHost)) return;
         if (isBrowserInternalUrl(details.url)) return;
 
-        // Kiểm tra xem cú mở tab này có xuất phát từ thao tác click thực của người dùng không
-        const userInitiated = isUserInitiated(details.sourceTabId);
+        // Theo dõi tiếp các lần điều hướng sau, vì URL thật có thể chỉ lộ ra sau redirect hoặc sau khi đổi location
+        const watch = {
+            sourceTabId: details.sourceTabId,
+            sourceHost,
+            // Cú mở tab này có xuất phát từ thao tác có chủ đích của người dùng không
+            userInitiated: isUserInitiated(details.sourceTabId),
+            time: Date.now()
+        };
+        watchedTabs[details.tabId] = watch;
 
-        // Tab mở trống rồi mới đổi location -> chờ lần điều hướng kế tiếp để biết URL thật
-        if (!details.url || details.url === 'about:blank') {
-            pendingPopups[details.tabId] = {
-                sourceTabId: details.sourceTabId,
-                sourceHost,
-                userInitiated,
-                time: Date.now()
-            };
-            return;
+        if (details.url && details.url !== 'about:blank') {
+            await judgeNewTab(details.tabId, watch, details.url);
         }
-
-        await judgeNewTab(details.tabId, details.sourceTabId, sourceHost, details.url, userInitiated);
-    } catch (error) { }
+    } catch (err) {
+        pbLogWarning('Không xử lý được tab mới')(err);
+    }
 });
 
-chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
+// Người dùng tự gõ địa chỉ, chọn bookmark... trong tab mới thì không phải do trang web điều khiển
+const USER_DRIVEN_TRANSITIONS = new Set(['typed', 'auto_bookmark', 'generated', 'keyword', 'keyword_generated', 'reload', 'start_page']);
+
+// Dùng onCommitted vì sự kiện này cho biết URL cuối cùng sau mọi redirect phía server
+chrome.webNavigation.onCommitted.addListener(async (details) => {
     if (details.frameId !== 0) return;
-    const pending = pendingPopups[details.tabId];
-    if (!pending) return;
-    if (details.url.startsWith('about:')) return;
-    delete pendingPopups[details.tabId];
-    if (Date.now() - pending.time > 10000 || isBrowserInternalUrl(details.url)) return;
+    const watch = watchedTabs[details.tabId];
+    if (!watch || details.url.startsWith('about:')) return;
+    if (Date.now() - watch.time > WATCH_WINDOW_MS
+        || USER_DRIVEN_TRANSITIONS.has(details.transitionType)
+        || isUserInitiated(details.tabId)
+        || isBrowserInternalUrl(details.url)) {
+        delete watchedTabs[details.tabId];
+        return;
+    }
 
     await ready;
     if (!isEnabled) return;
     try {
-        await judgeNewTab(details.tabId, pending.sourceTabId, pending.sourceHost, details.url, pending.userInitiated);
-    } catch (error) { }
+        await judgeNewTab(details.tabId, watch, details.url);
+    } catch (err) {
+        pbLogWarning('Không xử lý được tab mới')(err);
+    }
+});
+
+// Cú click ở trang cũ không được tính cho trang mới. Phải đăng ký SAU listener theo dõi tab ở trên,
+// vì listener đó cần biết người dùng vừa bấm link trong tab trước khi dấu vết bị xóa.
+chrome.webNavigation.onCommitted.addListener((details) => {
+    if (details.frameId === 0) delete trustedClicks[details.tabId];
 });

@@ -1,0 +1,12 @@
+{
+  "name": "popup-blocker-pro-tests",
+  "private": true,
+  "description": "Kiểm thử end-to-end bằng cách nạp extension thật vào Chromium",
+  "scripts": {
+    "test": "node run-all.js"
+  },
+  "devDependencies": {
+    "jsqr": "1.4.0",
+    "playwright": "1.64.1"
+  }
+}

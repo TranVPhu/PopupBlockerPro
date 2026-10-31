@@ -6,7 +6,18 @@
     let hoveredElement = null;
     let elementStack = [];
 
-    const currentHost = window.location.hostname.replace(/^www\./, '');
+    function hostOfOrigin(origin) {
+        try {
+            return new URL(origin).hostname.replace(/^www\./, '');
+        } catch (_) {
+            return ''; // Origin 'null' của iframe sandbox
+        }
+    }
+
+    // Iframe about:blank/blob: không có hostname riêng -> thuộc về trang chứa nó
+    const ancestorOrigins = Array.from(window.location.ancestorOrigins || []);
+    const currentHost = window.location.hostname.replace(/^www\./, '') || hostOfOrigin(ancestorOrigins[0]);
+    const topHost = ancestorOrigins.length > 0 ? hostOfOrigin(ancestorOrigins[ancestorOrigins.length - 1]) : currentHost;
 
     const GENERIC_COSMETIC_CSS = `
     /* 1. Quảng cáo banner & khung popup thông thường */
@@ -115,25 +126,40 @@
         return null;
     }
 
-    // 3. Áp dụng cả bộ lọc mặc định và danh sách phần tử người dùng tự ẩn
+    // 3. Áp dụng cả bộ lọc mặc định và danh sách phần tử người dùng tự ẩn.
+    // CSS được chèn qua chrome.scripting (origin USER): trang không nhìn thấy, không gỡ được và không ghi đè được kể cả bằng !important.
+    // Thẻ <style> chỉ để ẩn ngay trong lúc chờ background (có thể đang ngủ), và làm dự phòng nếu không chèn được.
+    let injectedCss = '';
+    let cssQueue = Promise.resolve();
+
     function applyCosmeticFilter(customRulesMap = {}) {
+        const siteSelectors = customRulesMap[currentHost] || [];
+        const customCss = siteSelectors.length > 0
+            ? `\n${siteSelectors.join(', ')} { display: none !important; visibility: hidden !important; }`
+            : '';
+        const nextCss = isSiteProtected ? BASE_COSMETIC_CSS + customCss : '';
+
         let styleEl = document.getElementById('pb-cosmetic-style');
-        if (isSiteProtected) {
-            if (!styleEl && document.documentElement) {
+        if (!nextCss) {
+            if (styleEl) styleEl.remove();
+        } else if (nextCss !== injectedCss && document.documentElement) {
+            if (!styleEl) {
                 styleEl = document.createElement('style');
                 styleEl.id = 'pb-cosmetic-style';
                 document.documentElement.appendChild(styleEl);
             }
-            if (styleEl) {
-                const siteSelectors = customRulesMap[currentHost] || [];
-                const customCss = siteSelectors.length > 0
-                    ? `\n${siteSelectors.join(', ')} { display: none !important; visibility: hidden !important; }`
-                    : '';
-                styleEl.textContent = BASE_COSMETIC_CSS + customCss;
-            }
-        } else if (styleEl) {
-            styleEl.remove();
+            styleEl.textContent = nextCss;
         }
+
+        // Chạy nối tiếp để lệnh gỡ CSS cũ luôn khớp đúng nội dung đã chèn trước đó
+        cssQueue = cssQueue.then(async () => {
+            if (nextCss === injectedCss) return;
+            const resp = await chrome.runtime.sendMessage({ action: 'update_cosmetic_css', css: nextCss, previous: injectedCss });
+            if (!resp || !resp.ok) return;
+            injectedCss = nextCss;
+            const current = document.getElementById('pb-cosmetic-style');
+            if (current && current.textContent === nextCss) current.remove();
+        }).catch(() => { }); // Extension vừa được tải lại: thẻ <style> vẫn còn tác dụng
     }
 
     // 4. Lưu phần tử bị ẩn vào bộ nhớ của tên miền hiện tại
@@ -185,7 +211,9 @@
                 // Hiệu ứng biến mất nhanh
                 activeEl.style.transition = 'opacity 0.2s ease-out';
                 activeEl.style.opacity = '0';
-                setTimeout(() => activeEl.remove(), 200);
+                // Ẩn chứ không xóa: xóa node do React quản lý có thể làm sập cả trang
+                const zapped = activeEl;
+                setTimeout(() => zapped.style.setProperty('display', 'none', 'important'), 200);
             }
             stopZapper();
         }
@@ -317,7 +345,9 @@
         chrome.storage.local.get(['enabled', 'whitelist', 'tempAllow', 'customHidden'], (res) => {
             const globalEnabled = res.enabled !== undefined ? res.enabled : true;
             const whitelist = res.whitelist || PB_DEFAULT_WHITELIST;
-            const isAllowed = pbHostInList(currentHost, [...whitelist, ...pbActiveTempAllow(res.tempAllow)]);
+            const allowed = [...whitelist, ...pbActiveTempAllow(res.tempAllow)];
+            // Khớp theo trang chính (giống rule mạng allowAllRequests) hoặc theo chính frame (iframe YouTube đã tin cậy)
+            const isAllowed = pbHostInList(topHost, allowed) || pbHostInList(currentHost, allowed);
 
             isSiteProtected = globalEnabled && !isAllowed;
             if (currentSessionToken) {
@@ -340,26 +370,38 @@
     });
 
     // 8. Theo dõi cử chỉ click chuột tin cậy của người dùng (tránh đóng nhầm tab hợp lệ)
-    document.addEventListener('click', (e) => {
-        if (e.isTrusted) {
-            const anchor = e.target.closest('a');
-            chrome.runtime.sendMessage({
-                action: 'user_trusted_click',
-                url: anchor && anchor.href ? anchor.href : '',
-                timestamp: Date.now()
-            }).catch(() => { });
+    const INTERACTIVE_SELECTOR = 'a[href], button, input, select, textarea, label, summary, [role="button"], [role="link"], [role="menuitem"], [role="tab"], [onclick]';
+
+    // Người dùng có chủ đích bấm vào một nút/link không, hay chỉ bấm vào vùng trống (kiểu "click đâu cũng mở tab quảng cáo")?
+    function isInteractiveClick(target) {
+        if (!(target instanceof Element)) return false;
+        const control = target.closest(INTERACTIVE_SELECTOR);
+        if (!control && window.getComputedStyle(target).cursor !== 'pointer') return false;
+
+        // Lớp phủ che gần hết trang (<a> trong suốt, <body onclick>) không phải là nút bấm thật.
+        // Chỉ xét ở trang chính: trong iframe, banner chiếm trọn frame là bình thường.
+        if (window === window.top) {
+            const rect = (control || target).getBoundingClientRect();
+            if (rect.width * rect.height >= window.innerWidth * window.innerHeight * 0.6) return false;
         }
+        return true;
+    }
+
+    function reportUserGesture(details) {
+        chrome.runtime.sendMessage({ action: 'user_trusted_click', ...details }).catch(() => { });
+    }
+
+    document.addEventListener('click', (e) => {
+        if (e.isTrusted) reportUserGesture({ interactive: isInteractiveClick(e.target) });
     }, true);
 
     document.addEventListener('auxclick', (e) => {
-        if (e.isTrusted && e.button === 1) {
-            const anchor = e.target.closest('a');
-            chrome.runtime.sendMessage({
-                action: 'user_trusted_click',
-                url: anchor && anchor.href ? anchor.href : '',
-                timestamp: Date.now()
-            }).catch(() => { });
-        }
+        if (e.isTrusted && e.button === 1) reportUserGesture({ interactive: isInteractiveClick(e.target) });
+    }, true);
+
+    // "Mở liên kết trong tab mới", "Tìm trên Google"... của menu chuột phải không phát sinh sự kiện click nào
+    document.addEventListener('contextmenu', (e) => {
+        if (e.isTrusted) reportUserGesture({ interactive: true, contextMenu: true });
     }, true);
 
     // 9. Dọn dẹp lớp phủ vô hình & Tự động tua Video Ads
@@ -398,7 +440,7 @@
                 const bg = style.backgroundColor.replace(/\s+/g, '');
                 const isTransparent = (bg === 'transparent' || bg === 'rgba(0,0,0,0)');
                 if (opacity < 0.1 || isTransparent) {
-                    el.remove();
+                    el.setAttribute('data-pb-hidden', '');
                     return;
                 }
             }
@@ -494,7 +536,7 @@
         const bg = style.backgroundColor.replace(/\s+/g, '');
         const isTransparent = (bg === 'transparent' || bg === 'rgba(0,0,0,0)');
         if (opacity < 0.05 || (isTransparent && parseInt(style.zIndex, 10) > 999)) {
-            target.remove();
+            target.setAttribute('data-pb-hidden', '');
         }
     }, true);
 

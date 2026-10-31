@@ -28,7 +28,7 @@
 - 🚫 **Xóa sổ lớp phủ tàng hình (Invisible Overlays)**: Tự động phát hiện và triệt tiêu các lớp `div` vô hình phủ toàn màn hình chuyên bẫy cú click chuột đầu tiên của bạn.
 - ⚡ **Vượt mặt Anti-Adblock (Anti-Adblock Defuser)**: Đánh lừa và vô hiệu hóa các thư viện kiểm tra chặn quảng cáo phổ biến (`FuckAdBlock`, `BlockAdBlock`). Tự động ẩn các hộp thoại đòi tắt chặn quảng cáo (nhận diện theo nội dung tiếng Việt và tiếng Anh, áp dụng cho mọi trang) và mở khóa thanh cuộn trang bị đóng băng.
 - 🔋 **Tiết kiệm Pin & Siêu nhẹ (0% CPU Idle)**: Thay thế toàn bộ vòng quét định kỳ `setInterval` bằng `MutationObserver` kết hợp Debounce, chỉ kích hoạt khi trang web thực sự có thay đổi DOM.
-- 🌐 **Đồng bộ Declarative Net Request (DNR) chuẩn MV3**: Tự động bật/tắt toàn bộ 44.000+ tên miền trong quy tắc mạng khi chuyển đổi công tắc tiện ích hoặc thêm trang vào Danh sách tin cậy (Whitelist).
+- 🌐 **Đồng bộ Declarative Net Request (DNR) chuẩn MV3**: Tự động bật/tắt toàn bộ các tên miền trong quy tắc mạng (EasyList, EasyPrivacy, ABPVN, Fanboy Cookie) khi chuyển đổi công tắc tiện ích hoặc thêm trang vào Danh sách tin cậy (Whitelist).
 - 🚀 **Trình cài đặt 1-Click độc quyền (`CaiDatChanPopup.exe`)**: Tự động nhận diện mọi trình duyệt trên máy tính (Google Chrome, Microsoft Edge, Cốc Cốc, Brave, Opera, Vivaldi), nạp extension trực tiếp và tạo lối tắt Desktop chỉ với 1 cú click.
 
 ---
@@ -91,6 +91,16 @@ pip install pyinstaller pillow
 ### Cập nhật bộ lọc quy tắc mới nhất:
 ```bash
 python build_easylist.py
+```
+GitHub Action `update-filters` tự chạy việc này mỗi tuần: nếu toàn bộ test đạt, bộ lọc mới được commit thẳng vào `main`. Chế độ `--strict` từ chối ghi đè khi có nguồn lọc lỗi hoặc số tên miền tụt hơn 30%.
+
+### Chạy kiểm thử:
+```bash
+python -m unittest discover -s tests -p "test_*.py"
+cd tests
+npm ci
+npx playwright install chromium
+npm test            # toàn bộ, hoặc: node run-all.js popups
 ```
 
 ### Đóng gói lại phần mềm cài đặt EXE:
