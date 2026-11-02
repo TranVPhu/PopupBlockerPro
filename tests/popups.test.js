@@ -135,7 +135,7 @@ runTest(async () => {
         if (rightClick) await page.click('#link', { button: 'right' });
         await page.keyboard.press('Escape');
         await page.waitForTimeout(300);
-        const newTabId = await sw.evaluate(() => chrome.tabs.create({ url: 'about:blank', active: false }).then((t) => t.id));
+        const newTabId = await sw.evaluate((url) => chrome.tabs.create({ url, active: false }).then((t) => t.id), base + '/new-tab');
         await sw.evaluate(({ sourceTabId, newTabId }) => {
             chrome.webNavigation.onCreatedNavigationTarget.dispatch({
                 sourceTabId, tabId: newTabId, sourceFrameId: 0, url: 'http://example.org/from-menu', timeStamp: Date.now()
@@ -156,8 +156,8 @@ runTest(async () => {
     await page.goto(base + '/');
     await page.waitForLoadState('load');
     const raceSourceTabId = await sw.evaluate(() => chrome.tabs.query({ url: 'http://localhost/*' }).then((t) => t[0].id));
-    const raceTabId = await sw.evaluate(async (sourceTabId) => {
-        const tab = await chrome.tabs.create({ url: 'about:blank', active: false });
+    const raceTabId = await sw.evaluate(async ({ sourceTabId, url }) => {
+        const tab = await chrome.tabs.create({ url, active: false });
         chrome.webNavigation.onCreatedNavigationTarget.dispatch({
             sourceTabId, tabId: tab.id, sourceFrameId: 0, url: 'http://localhost/step', timeStamp: Date.now()
         });
@@ -165,7 +165,7 @@ runTest(async () => {
             tabId: tab.id, frameId: 0, url: 'http://popads.net/', transitionType: 'link', timeStamp: Date.now()
         });
         return tab.id;
-    }, raceSourceTabId);
+    }, { sourceTabId: raceSourceTabId, url: base + '/new-tab' });
     const raceClosed = await eventually(async () => !(await tabInfo(raceTabId)), 5000);
     check('redirect committing before the new tab is registered is still closed', raceClosed);
     if (!raceClosed) await sw.evaluate((id) => chrome.tabs.remove(id), raceTabId);

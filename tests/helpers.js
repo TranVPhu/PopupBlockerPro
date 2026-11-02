@@ -47,7 +47,8 @@ async function launchExtension({ resolveTo = '~NOTFOUND', extDir = EXT_DIR, lang
         chrome.tabs.remove = async (tabId) => {
             for (let i = 0; i < 200; i++) {
                 const tab = await chrome.tabs.get(tabId).catch(() => null);
-                if (!tab || tab.status === 'complete') break;
+                // Tab đang bị tạm dừng có thể đã báo complete nhưng chưa có url thật: pendingUrl mới là đích đang chờ tải
+                if (!tab || (tab.status === 'complete' && tab.url && !tab.pendingUrl)) break;
                 await new Promise((r) => setTimeout(r, 50));
             }
             return remove(tabId);
