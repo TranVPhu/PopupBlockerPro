@@ -1,8 +1,9 @@
 {
     "manifest_version": 3,
-    "name": "Ultimate Popup & Overlay Blocker Pro",
+    "name": "Popup & Overlay Blocker",
     "version": "3.1.0",
-    "description": "Chặn popup, tab quảng cáo, trình theo dõi, bảng cookie và lớp phủ gây phiền. Có công cụ tự chọn phần tử cần ẩn.",
+    "description": "__MSG_extDescription__",
+    "default_locale": "en",
     "icons": {
         "16": "icons/icon16.png",
         "32": "icons/icon32.png",
@@ -32,6 +33,7 @@
             ],
             "js": [
                 "shared.js",
+                "i18n.js",
                 "cosmetic_rules.js",
                 "bridge.js"
             ],
@@ -66,7 +68,7 @@
     },
     "action": {
         "default_popup": "popup.html",
-        "default_title": "Ultimate Popup Blocker Pro",
+        "default_title": "Popup & Overlay Blocker",
         "default_icon": {
             "16": "icons/icon16.png",
             "32": "icons/icon32.png",

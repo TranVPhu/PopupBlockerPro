@@ -1,4 +1,4 @@
-importScripts('shared.js');
+importScripts('shared.js', 'i18n.js');
 
 let isEnabled = true;
 let blockedCount = 0;
@@ -187,35 +187,28 @@ chrome.storage.onChanged.addListener((changes, area) => {
         whitelist = changes.whitelist.newValue;
         syncDnrAllowRules();
     }
+    if (changes.language !== undefined) {
+        pbSetLanguage(changes.language.newValue);
+        MENU_ITEMS.forEach(({ id, key }) => {
+            chrome.contextMenus.update(id, { title: pbT(key) }).catch(pbLogWarning('Không đổi được ngôn ngữ menu'));
+        });
+    }
 });
 
 // --- KHỞI TẠO MENU CHUỘT PHẢI (CONTEXT MENU) ---
-chrome.runtime.onInstalled.addListener(() => {
+const MENU_ITEMS = [
+    { id: 'block_right_clicked_el', key: 'menuHide', contexts: ['all'] },
+    { id: 'start_element_zapper', key: 'menuZap', contexts: ['all'] },
+    { id: 'start_element_picker', key: 'menuPick', contexts: ['all'] },
+    { id: 'reset_custom_hidden', key: 'menuReset', contexts: ['all'] },
+    { id: 'create_link_qr', key: 'menuQr', contexts: ['link'] }
+];
+
+chrome.runtime.onInstalled.addListener(async () => {
+    await pbLoadLanguage();
     chrome.contextMenus.removeAll(() => {
-        chrome.contextMenus.create({
-            id: "block_right_clicked_el",
-            title: "🚫 Ẩn phần tử này (Lưu bộ lọc)",
-            contexts: ["all"]
-        });
-        chrome.contextMenus.create({
-            id: "start_element_zapper",
-            title: "⚡ Tẩy nhanh phần tử này (Zapper - không lưu)",
-            contexts: ["all"]
-        });
-        chrome.contextMenus.create({
-            id: "start_element_picker",
-            title: "🎯 Bật chế độ rà chuột chọn vùng cần ẩn",
-            contexts: ["all"]
-        });
-        chrome.contextMenus.create({
-            id: "reset_custom_hidden",
-            title: "♻️ Khôi phục các phần tử đã ẩn trên trang này",
-            contexts: ["all"]
-        });
-        chrome.contextMenus.create({
-            id: "create_link_qr",
-            title: "📱 Tạo mã QR cho liên kết này",
-            contexts: ["link"]
+        MENU_ITEMS.forEach(({ id, key, contexts }) => {
+            chrome.contextMenus.create({ id, title: pbT(key), contexts });
         });
     });
 });

@@ -4,7 +4,7 @@ const PB_TEMP_ALLOW_MINUTES = 30;
 
 // Dùng cho các lỗi đáng chú ý (rule mạng, lưu trữ...), để không thất bại trong im lặng
 function pbLogWarning(context) {
-    return (err) => console.warn(`[Popup Blocker Pro] ${context}:`, err);
+    return (err) => console.warn(`[Popup & Overlay Blocker] ${context}:`, err);
 }
 
 function pbHostInList(host, list) {

@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Quyền riêng tư và giấy phép</title>
+    <title data-i18n="privacyPageTitle">Quyền riêng tư và giấy phép</title>
     <style>
         :root {
             color-scheme: dark;
@@ -51,8 +51,9 @@
 </head>
 
 <body>
+    <div data-lang="vi" lang="vi">
     <h1>Chính sách quyền riêng tư</h1>
-    <p class="muted">Ultimate Popup &amp; Overlay Blocker Pro. Cập nhật ngày 31/10/2026.</p>
+    <p class="muted">Popup &amp; Overlay Blocker. Cập nhật ngày 31/10/2026.</p>
 
     <p><strong>Tiện ích không gửi dữ liệu của bạn đi đâu.</strong> Tiện ích không có máy chủ, không dùng công cụ phân tích và không chia sẻ dữ liệu với bên thứ ba. Mọi xử lý đều diễn ra trên máy của bạn.</p>
 
@@ -62,7 +63,7 @@
     <h2>Dữ liệu được lưu trên máy</h2>
     <p>Tiện ích chỉ lưu những mục sau trong bộ nhớ cục bộ của trình duyệt:</p>
     <ul>
-        <li>Trạng thái bật hoặc tắt.</li>
+        <li>Trạng thái bật hoặc tắt và ngôn ngữ giao diện.</li>
         <li>Tổng số lượt đã chặn và thời điểm của lượt gần nhất, không kèm địa chỉ.</li>
         <li>Danh sách trang tin cậy và các trang đang tạm bỏ chặn.</li>
         <li>Tên miền và mẫu nhận diện của những phần tử bạn tự chọn ẩn.</li>
@@ -89,18 +90,32 @@
         <li><a href="http://www.d-project.com/">qrcode-generator</a> của Kazuhiko Arase: MIT.</li>
     </ul>
     <p>Các quy tắc đã được chuyển đổi định dạng và lược bớt so với bản gốc. Xem chi tiết trong file <code>THIRD_PARTY_NOTICES.md</code> và <code>LICENSES/GPL-3.0.txt</code>, mã nguồn tại <a href="https://github.com/TranVPhu/PopupBlockerPro">GitHub</a>.</p>
-
     <hr>
+    </div>
 
-    <h1 lang="en">Privacy policy (English)</h1>
-    <div lang="en">
+    <div data-lang="en" lang="en">
+        <h1>Privacy policy</h1>
+        <p class="muted">Popup &amp; Overlay Blocker. Last updated October 31, 2026.</p>
         <p><strong>This extension does not send your data anywhere.</strong> It has no server and no analytics, and it shares nothing with third parties. All processing happens on your device.</p>
         <p><strong>Processed on your device:</strong> to block popups and ads, the extension runs on every page you open. It uses page addresses and domains to decide what to block, and reads page content to detect overlays and anti-adblock dialogs. This information is used only at that moment, and no browsing history is kept.</p>
-        <p><strong>Stored on your device:</strong> the on/off state, the total number of blocks and the time of the latest one (no addresses), your trusted and temporarily paused sites, and the domains and selectors of elements you chose to hide. Uninstalling the extension deletes this data. QR codes are generated locally.</p>
+        <p><strong>Stored on your device:</strong> the on/off state, the interface language, the total number of blocks and the time of the latest one (no addresses), your trusted and temporarily paused sites, and the domains and selectors of elements you chose to hide. Uninstalling the extension deletes this data. QR codes are generated locally.</p>
         <p><strong>Limited Use:</strong> data is not sold or used for personalized advertising, creditworthiness or lending. The use of information received from Chrome APIs adheres to the <a href="https://developer.chrome.com/docs/webstore/program-policies/policies">Chrome Web Store User Data Policy</a>, including the Limited Use requirements.</p>
         <p><strong>Donations:</strong> donations are voluntary and unlock nothing. They take place in the MoMo app between you and the author, not through Google, and the extension receives no payment information.</p>
-        <p><strong>Contact:</strong> <a href="https://github.com/TranVPhu/PopupBlockerPro/issues">GitHub Issues</a>.</p>
+        <p><strong>Changes and contact:</strong> if data practices change, this policy will be updated and the change clearly announced. Send privacy questions through <a href="https://github.com/TranVPhu/PopupBlockerPro/issues">GitHub Issues</a>.</p>
+        <hr>
+        <h1>Licenses</h1>
+        <p>The extension's source code uses the MIT license. These filters and libraries keep their own licenses:</p>
+        <ul>
+            <li><a href="https://github.com/abpvn/abpvn">ABPVN List</a> by ABPVN: GPLv3.</li>
+            <li><a href="https://easylist.to/">EasyList and EasyPrivacy</a> by The EasyList authors: GPLv3 or later, or CC BY-SA 3.0 or later.</li>
+            <li><a href="https://secure.fanboy.co.nz/fanboy-cookiemonster.txt">Easylist Cookie List</a>: <a href="http://creativecommons.org/licenses/by/3.0/">CC BY 3.0</a>.</li>
+            <li><a href="http://www.d-project.com/">qrcode-generator</a> by Kazuhiko Arase: MIT.</li>
+        </ul>
+        <p>The rules have been converted and reduced from the originals. See <code>THIRD_PARTY_NOTICES.md</code> and <code>LICENSES/GPL-3.0.txt</code> for details. Source code is on <a href="https://github.com/TranVPhu/PopupBlockerPro">GitHub</a>.</p>
     </div>
+
+    <script src="i18n.js"></script>
+    <script src="i18n-page.js"></script>
 </body>
 
 </html>

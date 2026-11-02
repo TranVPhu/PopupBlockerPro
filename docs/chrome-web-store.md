@@ -4,9 +4,11 @@ Tài liệu nội bộ để điền vào Developer Dashboard. Phần nội dung
 
 ## Việc phải xong trước khi nộp
 
-1. **Công khai mã nguồn.** Bộ lọc có gốc GPLv3 (ABPVN) nên khi phát hành phải cung cấp được mã nguồn tương ứng. Repo đang private nên chưa đáp ứng.
-2. **Đưa chính sách quyền riêng tư lên một địa chỉ công khai.** Dashboard cần một URL ai cũng mở được. Sau khi repo công khai, có thể bật GitHub Pages để phục vụ `privacy.html`.
-3. **Tăng `version` trong `manifest.json`** rồi chạy `python package_extension.py`.
+1. **Cung cấp mã nguồn của bộ lọc.** Chrome Web Store không bắt công khai code, nhưng bộ lọc có gốc GPLv3 (ABPVN) nên người nhận phải lấy được mã nguồn tương ứng của phần đó. Có thể công khai cả repo, hoặc giữ repo chính private và dùng một repo công khai riêng chỉ chứa bộ lọc đã biên dịch, danh sách gốc và công cụ biên dịch.
+2. **Đưa chính sách quyền riêng tư lên một địa chỉ công khai.** Dashboard cần một URL ai cũng mở được, và không nhất thiết phải là repo chính. Các link GitHub trong `privacy.html` và `THIRD_PARTY_NOTICES.md` phải trỏ tới nơi người dùng mở được.
+3. **Chạy `python package_extension.py`** để lấy bộ lọc mới nhất. Lần nộp đầu có thể giữ `3.1.0`; từ lần sau, mỗi lần phát hành phải tăng `version` trong `manifest.json`.
+4. **Ảnh màn hình** đã đúng cỡ 1280×800: tiếng Việt trong `store-assets/vi/`, tiếng Anh trong `store-assets/en/`. Tải đúng bộ cho từng ngôn ngữ trên Dashboard.
+5. **Mô tả theo ngôn ngữ:** gói đã có `_locales` cho tiếng Anh (mặc định) và tiếng Việt. Dashboard cho phép viết phần giới thiệu riêng cho từng ngôn ngữ.
 
 ## Mô tả một mục đích duy nhất (Single purpose)
 
@@ -54,7 +56,7 @@ Không có văn bản nào nói riêng về QR, nên đây là đánh giá theo 
 
 ## Các điểm khác cần rà trước khi nộp
 
-- **Tên:** "Ultimate" và "Pro" có thể bị xem là gây hiểu nhầm, nhất là khi bản này miễn phí. Nên cân nhắc một tên mô tả đúng chức năng, và tìm trên store xem đã có tiện ích trùng tên chưa.
+- **Tên:** tên `Popup & Overlay Blocker` mô tả đúng chức năng. Tiện ích PopUpOFF có phần mô tả tên gần giống ("Popup and overlay blocker"), nên hãy tìm lại trên store trước khi nộp.
 - **Mô tả và ảnh:** không dùng các câu như "chặn 100%". Chính sách cấm nội dung gây hiểu nhầm và không cho phép hứa điều không làm được.
 - **Ủng hộ:** ghi rõ là tự nguyện, không mở thêm tính năng. Nếu sau này bán gói Pro, phải nói rõ bạn là người bán, không phải Google, và mô tả rõ phần nào phải trả phí.
 - **Affiliate:** hiện không có. Nếu thêm sau này, phải mô tả nổi bật trên trang store và chỉ gắn khi người dùng có thao tác liên quan.

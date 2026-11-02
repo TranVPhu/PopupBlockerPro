@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Tạo mã QR</title>
+    <title data-i18n="qrPageTitle">Tạo mã QR</title>
     <style>
         * {
             box-sizing: border-box;
@@ -131,21 +131,22 @@
 
 <body>
     <div class="header">
-        <button id="backBtn" class="btn-back" title="Quay lại" hidden>←</button>
-        <h3>📱 Tạo mã QR</h3>
+        <button id="backBtn" class="btn-back" data-i18n-title="qrBack" title="Quay lại" hidden>←</button>
+        <h3 data-i18n="qrHeading">📱 Tạo mã QR</h3>
     </div>
 
-    <canvas id="qrCanvas" role="img" aria-label="Mã QR của đường link"></canvas>
+    <canvas id="qrCanvas" role="img" data-i18n-label="qrCanvasLabel" aria-label="Mã QR của đường link"></canvas>
     <div id="message" class="message" hidden></div>
 
-    <textarea id="linkInput" spellcheck="false" aria-label="Đường link cần tạo mã QR"
-        placeholder="Dán đường link vào đây..."></textarea>
+    <textarea id="linkInput" spellcheck="false" data-i18n-label="qrInputLabel" aria-label="Đường link cần tạo mã QR"
+        data-i18n-placeholder="qrPlaceholder" placeholder="Dán đường link vào đây..."></textarea>
 
     <div class="actions">
-        <button id="downloadBtn" class="btn-primary">⬇️ Tải ảnh PNG</button>
-        <button id="copyBtn" class="btn-secondary">📋 Sao chép ảnh</button>
+        <button id="downloadBtn" class="btn-primary" data-i18n="qrDownload">⬇️ Tải ảnh PNG</button>
+        <button id="copyBtn" class="btn-secondary" data-i18n="qrCopy">📋 Sao chép ảnh</button>
     </div>
 
+    <script src="i18n.js"></script>
     <script src="vendor/qrcode.js"></script>
     <script src="qr.js"></script>
 </body>

@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Ủng hộ tác giả</title>
+    <title data-i18n="donatePageTitle">Ủng hộ tác giả</title>
     <style>
         :root {
             color-scheme: dark;
@@ -44,10 +44,12 @@
 </head>
 
 <body>
-    <h1>☕ Ủng hộ tác giả</h1>
-    <p>Tiện ích này miễn phí. Nếu thấy hữu ích, bạn có thể ủng hộ tùy tâm bằng cách quét mã trong ứng dụng MoMo.</p>
-    <img id="momoQr" src="momo-qr.png" alt="Mã QR MoMo để ủng hộ tác giả">
-    <p class="muted">Ủng hộ là tự nguyện và không mở thêm tính năng. Giao dịch diễn ra trong MoMo giữa bạn và tác giả, không qua Google, và tiện ích không nhận được thông tin thanh toán của bạn.</p>
+    <h1 data-i18n="donateHeading">☕ Ủng hộ tác giả</h1>
+    <p data-i18n="donateIntro">Tiện ích này miễn phí. Nếu thấy hữu ích, bạn có thể ủng hộ tùy tâm bằng cách quét mã trong ứng dụng MoMo.</p>
+    <img id="momoQr" src="momo-qr.png" data-i18n-alt="donateAlt" alt="Mã QR MoMo để ủng hộ tác giả">
+    <p class="muted" data-i18n="donateNote">Ủng hộ là tự nguyện và không mở thêm tính năng. Giao dịch diễn ra trong MoMo giữa bạn và tác giả, không qua Google, và tiện ích không nhận được thông tin thanh toán của bạn.</p>
+    <script src="i18n.js"></script>
+    <script src="i18n-page.js"></script>
 </body>
 
 </html>

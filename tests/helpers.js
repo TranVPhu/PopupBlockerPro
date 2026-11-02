@@ -17,7 +17,7 @@ async function eventually(fn, timeoutMs = 15000) {
 }
 
 // Mọi tên miền ngoài localhost đều không ra mạng thật: resolveTo là "127.0.0.1:<cổng>" hoặc báo lỗi DNS ngay
-async function launchExtension({ resolveTo = '~NOTFOUND', extDir = EXT_DIR } = {}) {
+async function launchExtension({ resolveTo = '~NOTFOUND', extDir = EXT_DIR, language = 'vi' } = {}) {
     const ctx = await chromium.launchPersistentContext(fs.mkdtempSync(path.join(os.tmpdir(), 'pb-test-')), {
         channel: 'chromium',
         headless: true,
@@ -38,6 +38,8 @@ async function launchExtension({ resolveTo = '~NOTFOUND', extDir = EXT_DIR } = {
     const extId = sw.url().split('/')[2];
     // Background tạo alarm này sau khi đã nạp xong trạng thái
     await eventually(() => sw.evaluate(() => chrome.alarms.get('pb_sync_dnr_counts').then(Boolean)), 30000);
+    // Cố định ngôn ngữ để kết quả không phụ thuộc ngôn ngữ của máy chạy test
+    await sw.evaluate((lang) => chrome.storage.local.set({ language: lang }), language);
     // Playwright tạm dừng tab mới để gắn debugger. Đóng tab đúng lúc đó làm renderer của trang nguồn treo vĩnh viễn.
     // Người dùng thật không có debugger nên không gặp (no-debugger.test.js kiểm tra việc này), ở đây chỉ hoãn lệnh đóng.
     await sw.evaluate(() => {

@@ -188,44 +188,73 @@
         .footer a[hidden] {
             display: none;
         }
+
+        .language-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            margin-top: 8px;
+            font-size: 11px;
+            color: #a6adc8;
+        }
+
+        .language-row select {
+            padding: 2px 4px;
+            font-size: 11px;
+            color: #cdd6f4;
+            background: #313244;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 4px;
+            cursor: pointer;
+        }
     </style>
 </head>
 
 <body>
     <div class="header">
-        <img src="icons/icon48.png" alt="Popup Blocker Pro Logo">
-        <h3>Popup Blocker Pro</h3>
+        <img src="icons/icon48.png" data-i18n-alt="logoAlt" alt="Logo Popup &amp; Overlay Blocker">
+        <h3>Popup &amp; Overlay Blocker</h3>
     </div>
     <div class="stat-grid">
         <div class="stat-card">
             <span class="stat-num" id="tabCount">0</span>
-            <span class="stat-lbl">🛡️ Trang này</span>
+            <span class="stat-lbl" data-i18n="statThisPage">🛡️ Trang này</span>
         </div>
         <div class="stat-card">
             <span class="stat-num" id="count">0</span>
-            <span class="stat-lbl">🌐 Toàn hệ thống</span>
+            <span class="stat-lbl" data-i18n="statAllSites">🌐 Toàn hệ thống</span>
         </div>
     </div>
-    <div class="domain-box" id="currentDomain">Đang kiểm tra tên miền...</div>
+    <div class="domain-box" id="currentDomain" data-i18n="domainChecking">Đang kiểm tra tên miền...</div>
 
     <!-- Hàng công cụ hỗ trợ lọc DOM giống uBlock Origin -->
     <div class="tools-grid">
-        <button id="pickerBtn" class="btn-tool" title="Chọn phần tử bằng chuột để ẩn vĩnh viễn">🎯 Rà chọn ẩn</button>
-        <button id="zapperBtn" class="btn-tool" title="Click xóa nhanh phần tử ngay lập tức (không lưu)">⚡ Tẩy nhanh</button>
-        <button id="qrBtn" class="btn-tool btn-tool-wide" title="Tạo mã QR cho đường link của trang này">📱 Tạo mã QR cho trang này</button>
+        <button id="pickerBtn" class="btn-tool" data-i18n="pickerBtn" data-i18n-title="pickerTitle" title="Chọn phần tử bằng chuột để ẩn vĩnh viễn">🎯 Rà chọn ẩn</button>
+        <button id="zapperBtn" class="btn-tool" data-i18n="zapperBtn" data-i18n-title="zapperTitle" title="Click ẩn nhanh phần tử ngay lập tức (không lưu)">⚡ Tẩy nhanh</button>
+        <button id="qrBtn" class="btn-tool btn-tool-wide" data-i18n="qrBtn" data-i18n-title="qrBtnTitle" title="Tạo mã QR cho đường link của trang này">📱 Tạo mã QR cho trang này</button>
     </div>
 
     <button id="pauseBtn" class="btn-pause"></button>
-    <button id="resetBtn" class="btn-reset">♻️ Khôi phục phần tử đã ẩn</button>
-    <button id="whitelistBtn" class="btn-wl-add">Cho phép trang này (Whitelist)</button>
-    <button id="toggleBtn" class="btn-on">ĐANG BẬT TOÀN HỆ THỐNG</button>
+    <button id="resetBtn" class="btn-reset" data-i18n="restoreDefault">♻️ Khôi phục phần tử đã ẩn</button>
+    <button id="whitelistBtn" class="btn-wl-add" data-i18n="whitelistAdd">Cho phép trang này (Whitelist)</button>
+    <button id="toggleBtn" class="btn-on" data-i18n="toggleOn">ĐANG BẬT TOÀN HỆ THỐNG</button>
 
     <div class="footer">
-        <a id="donateLink" href="donate.html" target="_blank" hidden>☕ Ủng hộ tác giả</a>
-        <a id="privacyLink" href="privacy.html" target="_blank">Quyền riêng tư &amp; giấy phép</a>
+        <a id="donateLink" href="donate.html" target="_blank" data-i18n="donateLink" hidden>☕ Ủng hộ tác giả</a>
+        <a id="privacyLink" href="privacy.html" target="_blank" data-i18n="privacyLink">Quyền riêng tư &amp; giấy phép</a>
     </div>
 
+    <label class="language-row">
+        <span data-i18n="languageLabel">🌐 Ngôn ngữ</span>
+        <select id="languageSelect">
+            <option value="vi" lang="vi">Tiếng Việt</option>
+            <option value="en" lang="en">English</option>
+        </select>
+    </label>
+
     <script src="shared.js"></script>
+    <script src="i18n.js"></script>
     <script src="popup.js"></script>
 </body>
 

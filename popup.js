@@ -8,20 +8,24 @@ const resetBtn = document.getElementById('resetBtn');
 const countSpan = document.getElementById('count');
 const tabCountSpan = document.getElementById('tabCount');
 const domainBox = document.getElementById('currentDomain');
+const languageSelect = document.getElementById('languageSelect');
 
 let currentHost = '';
 let currentTabId = null;
 let currentUrl = '';
 let tempAllow = {};
+// Lần vẽ gần nhất, để đổi ngôn ngữ xong vẽ lại ngay mà không phải đọc lại dữ liệu
+let lastRender = null;
 
 function renderUI(enabled, count, tabCount, whitelist, customHidden = {}) {
+    lastRender = [enabled, count, tabCount, whitelist, customHidden];
     countSpan.textContent = count || 0;
     if (tabCountSpan) tabCountSpan.textContent = tabCount || 0;
-    toggleBtn.textContent = enabled ? 'ĐANG BẬT TOÀN HỆ THỐNG' : 'ĐÃ TẠM TẮT TOÀN HỆ THỐNG';
+    toggleBtn.textContent = pbT(enabled ? 'toggleOn' : 'toggleOff');
     toggleBtn.className = enabled ? 'btn-on' : 'btn-off';
 
     if (!currentHost) {
-        domainBox.textContent = 'Trang hệ thống trình duyệt';
+        domainBox.textContent = pbT('domainSystemPage');
         whitelistBtn.style.display = 'none';
         pickerBtn.style.display = 'none';
         zapperBtn.style.display = 'none';
@@ -34,48 +38,59 @@ function renderUI(enabled, count, tabCount, whitelist, customHidden = {}) {
     const isWhitelisted = pbHostInList(currentHost, whitelist);
     const isPaused = pbActiveTempAllow(tempAllow).includes(currentHost);
     if (isWhitelisted) {
-        domainBox.textContent = `✅ Đã tin cậy: ${currentHost}`;
+        domainBox.textContent = pbT('domainTrusted', { host: currentHost });
     } else {
-        domainBox.textContent = isPaused ? `⏸️ Đang tạm bỏ chặn: ${currentHost}` : `🔒 Đang bảo vệ: ${currentHost}`;
+        domainBox.textContent = pbT(isPaused ? 'domainPaused' : 'domainProtected', { host: currentHost });
     }
 
     // Tạm bỏ chặn chỉ có ý nghĩa khi trang đang được bảo vệ
     pauseBtn.style.display = enabled && !isWhitelisted ? 'flex' : 'none';
     if (isPaused) {
         const minutesLeft = Math.ceil((tempAllow[currentHost] - Date.now()) / 60000);
-        pauseBtn.textContent = `▶️ Chặn lại ngay (còn ${minutesLeft} phút)`;
+        pauseBtn.textContent = pbT('resumeNow', { minutes: minutesLeft });
         pauseBtn.className = 'btn-resume';
     } else {
-        pauseBtn.textContent = `⏸️ Tạm bỏ chặn trang này (${PB_TEMP_ALLOW_MINUTES} phút)`;
+        pauseBtn.textContent = pbT('pauseFor', { minutes: PB_TEMP_ALLOW_MINUTES });
         pauseBtn.className = 'btn-pause';
     }
 
-    whitelistBtn.textContent = isWhitelisted ? 'Gỡ khỏi Danh sách trắng (Whitelist)' : 'Cho phép trang này (Whitelist)';
+    whitelistBtn.textContent = pbT(isWhitelisted ? 'whitelistRemove' : 'whitelistAdd');
     whitelistBtn.className = isWhitelisted ? 'btn-wl-remove' : 'btn-wl-add';
 
     const hiddenCount = (customHidden[currentHost] || []).length;
     if (hiddenCount > 0) {
         resetBtn.style.display = 'flex';
-        resetBtn.textContent = `♻️ Khôi phục ${hiddenCount} phần tử đã ẩn`;
+        resetBtn.textContent = pbT('restoreCount', { count: hiddenCount });
     } else {
         resetBtn.style.display = 'none';
     }
 }
 
-chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    if (tabs[0] && tabs[0].url && tabs[0].url.startsWith('http')) {
-        currentHost = new URL(tabs[0].url).hostname.replace(/^www\./, '');
-        currentTabId = tabs[0].id;
-        currentUrl = tabs[0].url;
-    }
-    chrome.storage.local.get(['enabled', 'blockedCount', 'whitelist', 'tempAllow', 'customHidden'], (res) => {
-        tempAllow = res.tempAllow || {};
-        chrome.runtime.sendMessage({ action: 'get_tab_stats', tabId: currentTabId }, (resp) => {
-            const tabCount = resp ? resp.tabCount : 0;
-            const globalCount = resp ? resp.globalCount : (res.blockedCount || 0);
-            renderUI(res.enabled !== false, globalCount, tabCount, res.whitelist || PB_DEFAULT_WHITELIST, res.customHidden || {});
+pbLoadLanguage().then(() => {
+    languageSelect.value = pbCurrentLanguage;
+    pbApplyTranslations();
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs[0] && tabs[0].url && tabs[0].url.startsWith('http')) {
+            currentHost = new URL(tabs[0].url).hostname.replace(/^www\./, '');
+            currentTabId = tabs[0].id;
+            currentUrl = tabs[0].url;
+        }
+        chrome.storage.local.get(['enabled', 'blockedCount', 'whitelist', 'tempAllow', 'customHidden'], (res) => {
+            tempAllow = res.tempAllow || {};
+            chrome.runtime.sendMessage({ action: 'get_tab_stats', tabId: currentTabId }, (resp) => {
+                const tabCount = resp ? resp.tabCount : 0;
+                const globalCount = resp ? resp.globalCount : (res.blockedCount || 0);
+                renderUI(res.enabled !== false, globalCount, tabCount, res.whitelist || PB_DEFAULT_WHITELIST, res.customHidden || {});
+            });
         });
     });
+});
+
+languageSelect.addEventListener('change', () => {
+    pbSetLanguage(languageSelect.value);
+    chrome.storage.local.set({ language: pbCurrentLanguage });
+    pbApplyTranslations();
+    if (lastRender) renderUI(...lastRender);
 });
 
 toggleBtn.addEventListener('click', () => {

@@ -1,8 +1,8 @@
 <div align="center">
 
-  <img src="icons/logo.png" alt="Popup Blocker Pro Logo" width="130" />
+  <img src="icons/logo.png" alt="Logo Popup & Overlay Blocker" width="130" />
 
-  # 🛡️ Ultimate Popup & Overlay Blocker Pro (V3.1)
+  # 🛡️ Popup & Overlay Blocker
 
   **Tiện ích chặn popup, tab quảng cáo, trình theo dõi, bảng cookie và lớp phủ gây phiền cho các trình duyệt nhân Chromium, có tối ưu cho trang Việt Nam.**
 
@@ -28,6 +28,7 @@
   - **Rà chọn (Picker)**: Rà chuột để chọn và lưu quy tắc ẩn, dùng phím `[↑]` và `[↓]` để mở rộng hoặc thu hẹp vùng chọn.
 - ⏸️ **Tạm bỏ chặn theo trang**: Tắt chặn cho trang đang xem bằng 1 nút trong popup, sau 30 phút tự chặn lại.
 - 📱 **Tạo mã QR cho đường link**: Từ popup hoặc menu chuột phải. Có thể sửa link, tải ảnh PNG hoặc sao chép ảnh. Mã được tạo ngay trên máy.
+- 🌐 **Giao diện tiếng Việt và tiếng Anh**: Chọn ngay trong popup. Lần đầu tự theo ngôn ngữ của trình duyệt.
 - 🔋 **Tiết kiệm tài nguyên khi trang không đổi**: Dùng `MutationObserver` có debounce thay cho vòng quét định kỳ trong trang.
 - 📥 **Không can thiệp tải file**: Các link `blob:`, `data:` và thuộc tính `download` được bỏ qua khi kiểm tra click tự động.
 
@@ -80,6 +81,8 @@ PopupBlockerPro/
 ├── privacy.html         # Chính sách quyền riêng tư và giấy phép
 ├── vendor/qrcode.js     # Thư viện qrcode-generator 2.0.4 của Kazuhiko Arase (MIT)
 ├── shared.js            # Hằng số dùng chung
+├── i18n.js, i18n-page.js # Từ điển hai ngôn ngữ và phần áp dụng cho trang tĩnh
+├── _locales/            # Mô tả tiện ích theo ngôn ngữ, dùng cho manifest và store
 ├── rules.json           # Quy tắc Declarative Net Request (biên dịch tự động)
 ├── cosmetic_rules.js    # Quy tắc ẩn phần tử (biên dịch tự động)
 ├── popup_domains.json   # Tên miền popup quảng cáo (biên dịch tự động)

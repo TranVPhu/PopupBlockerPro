@@ -30,6 +30,8 @@ def create_store_package():
         "manifest.json",
         "background.js",
         "shared.js",
+        "i18n.js",
+        "i18n-page.js",
         "bridge.js",
         "inject.js",
         "popup.html",
@@ -47,6 +49,7 @@ def create_store_package():
     ]
     include_dirs = [
         "icons",
+        "_locales",
         "vendor",
         "LICENSES"
     ]

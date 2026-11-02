@@ -75,6 +75,12 @@ runTest(async () => {
 
     await page.goto(base + '/ssr');
     check('server-rendered modal hidden', await hiddenOnceExists('#dlg'));
+    // Số trên icon: Chrome không đếm gì ở trang này nên chỉ còn lượt ẩn hộp thoại
+    const badge = () => sw.evaluate(async () => {
+        const [tab] = await chrome.tabs.query({ url: 'http://localhost/*' });
+        return chrome.action.getBadgeText({ tabId: tab.id });
+    });
+    check('hidden modal is counted', await eventually(async () => Number(await badge()) >= 1), 'badge=' + await badge());
 
     await page.goto(base + '/preRendered');
     await page.waitForFunction(() => document.getElementById('dlg').style.display === 'block', null, { polling: 100 });
@@ -100,6 +106,7 @@ runTest(async () => {
     await page.waitForLoadState('load');
     await page.waitForTimeout(1500);
     check('whitelisted site keeps modal', await visible('#dlg'));
+    check('whitelisted site counts nothing', !Number(await badge()), 'badge=' + await badge());
 
     check('no page errors', errors.length === 0, errors.join(' | '));
     await ctx.close();

@@ -191,7 +191,7 @@
         const banner = document.createElement('div');
         banner.id = 'pb-zapper-banner';
         banner.style.cssText = 'position:fixed;top:12px;left:50%;transform:translateX(-50%);background:#1e1e2e;color:#fab387;padding:10px 18px;border-radius:8px;z-index:2147483647;font:bold 13px sans-serif;box-shadow:0 4px 15px rgba(0,0,0,0.5);border:2px solid #fab387;pointer-events:none;user-select:none;';
-        banner.textContent = '⚡ Tẩy nhanh (Zapper): Click vào phần tử để xóa ngay lập tức | [ESC] Thoát';
+        banner.textContent = pbT('zapperBanner');
         document.body.appendChild(banner);
 
         let activeEl = null;
@@ -245,7 +245,7 @@
         const banner = document.createElement('div');
         banner.id = 'pb-picker-banner';
         banner.style.cssText = 'position:fixed;top:12px;left:50%;transform:translateX(-50%);background:#1e1e2e;color:#a6e3a1;padding:10px 18px;border-radius:8px;z-index:2147483647;font:bold 13px sans-serif;box-shadow:0 4px 15px rgba(0,0,0,0.5);border:2px solid #89b4fa;pointer-events:none;user-select:none;';
-        banner.textContent = '🎯 Bộ chọn phần tử: Click để ẩn | [↑] Chọn phần tử cha | [↓] Chọn phần tử con | [ESC] Thoát';
+        banner.textContent = pbT('pickerBanner');
         document.body.appendChild(banner);
 
         function updateHighlight(el) {
@@ -341,8 +341,22 @@
         }));
     });
 
+    // Hộp thoại được ẩn ngay để không nháy lên màn hình, có thể trước khi đọc xong cấu hình.
+    // Khi đó chưa biết trang có được bảo vệ không nên chưa đếm, tránh cộng nhầm ở trang tin cậy hoặc đang tạm bỏ chặn
+    let protectionKnown = false;
+    let pendingDialogReports = 0;
+
+    function reportDialogHidden() {
+        if (!protectionKnown) {
+            pendingDialogReports++;
+            return;
+        }
+        chrome.runtime.sendMessage({ action: 'ad_blocked' }).catch(() => { });
+    }
+
     function syncProtectionState() {
-        chrome.storage.local.get(['enabled', 'whitelist', 'tempAllow', 'customHidden'], (res) => {
+        chrome.storage.local.get(['enabled', 'whitelist', 'tempAllow', 'customHidden', 'language'], (res) => {
+            pbSetLanguage(res.language);
             const globalEnabled = res.enabled !== undefined ? res.enabled : true;
             const whitelist = res.whitelist || PB_DEFAULT_WHITELIST;
             const allowed = [...whitelist, ...pbActiveTempAllow(res.tempAllow)];
@@ -350,6 +364,10 @@
             const isAllowed = pbHostInList(topHost, allowed) || pbHostInList(currentHost, allowed);
 
             isSiteProtected = globalEnabled && !isAllowed;
+            protectionKnown = true;
+            const reports = isSiteProtected ? pendingDialogReports : 0;
+            pendingDialogReports = 0;
+            for (let i = 0; i < reports; i++) reportDialogHidden();
             if (currentSessionToken) {
                 window.dispatchEvent(new CustomEvent('__pb_sync_' + currentSessionToken, {
                     detail: { active: isSiteProtected }
@@ -366,6 +384,7 @@
     // Chỉ đồng bộ lại khi cấu hình thay đổi (bỏ qua blockedCount tăng liên tục ở mọi frame của mọi tab)
     chrome.storage.onChanged.addListener((changes, area) => {
         if (area !== 'local') return;
+        if (changes.language) pbSetLanguage(changes.language.newValue);
         if (changes.enabled || changes.whitelist || changes.tempAllow || changes.customHidden) syncProtectionState();
     });
 
@@ -508,7 +527,7 @@
             dialog.setAttribute('data-pb-hidden', '');
             hideDetachedBackdrops();
             setTimeout(hideDetachedBackdrops, 300);
-            chrome.runtime.sendMessage({ action: 'ad_blocked' }).catch(() => { });
+            reportDialogHidden();
         });
     }
 

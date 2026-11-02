@@ -44,14 +44,14 @@
 
             // Nếu KHÔNG có cử chỉ bấm chuột từ người dùng -> Chặn 100% (Popunder, Timer popup)
             if (!hasUserGesture) {
-                console.log('[Popup Blocker Pro] Đã chặn popup tự kích hoạt (Không có user gesture):', url);
+                console.log('[Popup & Overlay Blocker] Đã chặn popup tự kích hoạt (Không có user gesture):', url);
                 reportBlocked();
                 return createDummyWindow();
             }
 
             // Chống Popup Flood: Người dùng bấm 1 cái nhưng trang web gọi window.open hàng loạt (>= 2 lần trong 800ms)
             if (now - lastPopupTimestamp < 800) {
-                console.log('[Popup Blocker Pro] Đã chặn popup liên tiếp (Popup Flood):', url);
+                console.log('[Popup & Overlay Blocker] Đã chặn popup liên tiếp (Popup Flood):', url);
                 reportBlocked();
                 return createDummyWindow();
             }
@@ -60,7 +60,7 @@
             if (url) {
                 const trimmedUrl = String(url).trim().toLowerCase();
                 if (trimmedUrl.startsWith('javascript:') || trimmedUrl === '#' || trimmedUrl === 'data:text/html') {
-                    console.log('[Popup Blocker Pro] Đã chặn popup URL đáng ngờ:', url);
+                    console.log('[Popup & Overlay Blocker] Đã chặn popup URL đáng ngờ:', url);
                     reportBlocked();
                     return createDummyWindow();
                 }
@@ -169,7 +169,7 @@
                     const hasUserGesture = navigator.userActivation && navigator.userActivation.isActive;
                     // Nếu JS tự động bấm vào link mở tab mới mà không có tương tác người dùng -> Chặn!
                     if (!hasUserGesture && (element.target === '_blank' || !element.isConnected)) {
-                        console.log('[Popup Blocker Pro] Đã chặn JS tự động click mở tab ẩn:', href);
+                        console.log('[Popup & Overlay Blocker] Đã chặn JS tự động click mở tab ẩn:', href);
                         reportBlocked();
                         return;
                     }

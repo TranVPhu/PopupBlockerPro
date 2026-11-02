@@ -44,14 +44,14 @@ function drawQr(text) {
 function render() {
     const text = linkInput.value.trim();
     if (!text) {
-        showMessage('Dán đường link vào ô bên dưới để tạo mã QR.');
+        showMessage(pbT('qrEmpty'));
         return;
     }
     try {
         drawQr(text);
     } catch (err) {
         // Thư viện báo lỗi khi vượt sức chứa của QR (khoảng 2.300 byte ở mức M)
-        showMessage('Đường link quá dài, không thể tạo mã QR.');
+        showMessage(pbT('qrTooLong'));
         return;
     }
     messageBox.hidden = true;
@@ -60,13 +60,12 @@ function render() {
     copyBtn.disabled = false;
 }
 
-const COPY_LABEL = copyBtn.textContent;
 let copyLabelTimer = null;
 
 function flashCopyLabel(label) {
     copyBtn.textContent = label;
     clearTimeout(copyLabelTimer);
-    copyLabelTimer = setTimeout(() => { copyBtn.textContent = COPY_LABEL; }, 1500);
+    copyLabelTimer = setTimeout(() => { copyBtn.textContent = pbT('qrCopy'); }, 1500);
 }
 
 function buildFileName(text) {
@@ -94,9 +93,9 @@ downloadBtn.addEventListener('click', async () => {
 copyBtn.addEventListener('click', async () => {
     try {
         await navigator.clipboard.write([new ClipboardItem({ 'image/png': canvasToPngBlob() })]);
-        flashCopyLabel('✅ Đã sao chép');
+        flashCopyLabel(pbT('qrCopied'));
     } catch (err) {
-        flashCopyLabel('❌ Không sao chép được');
+        flashCopyLabel(pbT('qrCopyFailed'));
     }
 });
 
@@ -109,3 +108,9 @@ const params = new URLSearchParams(window.location.search);
 linkInput.value = params.get('url') || '';
 backBtn.hidden = params.get('from') !== 'popup';
 render();
+
+// Mã QR không phụ thuộc ngôn ngữ nên vẽ ngay, phần chữ dịch sau khi đọc xong lựa chọn
+pbLoadLanguage().then(() => {
+    pbApplyTranslations();
+    render();
+});
