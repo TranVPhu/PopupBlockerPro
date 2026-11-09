@@ -85,11 +85,17 @@
         });
     }
 
+    // Trang hợp lệ hay bọc window.open bằng cách gán lại (viết lại URL, đo lường...). Ở chế độ strict, phép gán vào
+    // thuộc tính chỉ đọc ném TypeError và dừng cả ứng dụng của trang, nên phải nhận phép gán.
+    // Lớp bọc của trang chỉ nhận được hàm bảo vệ làm giá trị cũ, và không có cách nào lấy được window.open gốc,
+    // nên hàm bảo vệ vẫn nằm trong chuỗi gọi. Không cho cấu hình lại: lần khóa thứ hai (iframe đã được khóa) sẽ ném TypeError và bị bỏ qua
     function lockWindowOpen(win, nativeOpen) {
+        let current = createGuardedOpen(win, nativeOpen);
         Object.defineProperty(win, 'open', {
             configurable: false,
-            writable: false,
-            value: createGuardedOpen(win, nativeOpen)
+            enumerable: true,
+            get() { return current; },
+            set(value) { current = value; }
         });
     }
 
@@ -150,9 +156,10 @@
     }
 
     // 2. Chặn tự động click vào thẻ <a> ẩn NHƯNG không chặn tải file blob/data/download
+    // Cho phép gán lại (như thuộc tính gốc) vì trang hợp lệ có thể bọc click(); xem lockWindowOpen
     Object.defineProperty(HTMLElement.prototype, 'click', {
-        configurable: false,
-        writable: false,
+        configurable: true,
+        writable: true,
         value: new Proxy(originalClick, {
             apply(nativeClick, element, args) {
                 if (isProtectionActive() && element && element.tagName === 'A') {
