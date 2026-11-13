@@ -15,7 +15,7 @@
 
 ---
 
-## 🌟 Tính Năng (Phiên bản 3.1.1)
+## 🌟 Tính Năng
 
 - 🛡️ **Chặn popup và popunder**: Chặn popup tự mở khi không có thao tác của người dùng, popup mở hàng loạt, và đóng tab mới nếu nó đi tới tên miền quảng cáo đã biết hoặc sang trang khác sau một cú click vào vùng không bấm được. Các trang đăng nhập phổ biến (Google, Facebook, Microsoft...) được miễn để hạn chế đóng nhầm.
 - 🌐 **Chặn quảng cáo và trình theo dõi ở tầng mạng**: Dùng Declarative Net Request với quy tắc biên dịch từ EasyList, EasyPrivacy, ABPVN và Easylist Cookie List.

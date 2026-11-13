@@ -6,7 +6,7 @@ Tài liệu nội bộ để điền vào Developer Dashboard. Phần nội dung
 
 1. **Cung cấp mã nguồn của bộ lọc.** Chrome Web Store không bắt công khai code, nhưng bộ lọc có gốc GPLv3 (ABPVN) nên người nhận phải lấy được mã nguồn tương ứng của phần đó. Có thể công khai cả repo, hoặc giữ repo chính private và dùng một repo công khai riêng chỉ chứa bộ lọc đã biên dịch, danh sách gốc và công cụ biên dịch.
 2. **Đưa chính sách quyền riêng tư lên một địa chỉ công khai.** Dashboard cần một URL ai cũng mở được, và không nhất thiết phải là repo chính. Các link GitHub trong `privacy.html` và `THIRD_PARTY_NOTICES.md` phải trỏ tới nơi người dùng mở được.
-3. **Chạy `python package_extension.py`** để lấy bộ lọc mới nhất. Lần nộp đầu có thể giữ `3.1.0`; từ lần sau, mỗi lần phát hành phải tăng `version` trong `manifest.json`.
+3. **Lấy gói mới nhất.** Mỗi khi bộ lọc thay đổi, workflow "Cập nhật bộ lọc" tự tăng số cuối của `version`, commit và đóng gói sẵn ZIP: vào tab Actions, mở lần chạy mới nhất, tải mục **Artifacts** (lưu 90 ngày) rồi tải lên Dashboard. Muốn tự làm thì chạy `git pull` rồi `python package_extension.py`. Mỗi lần nộp phải có `version` lớn hơn bản đã nộp.
 4. **Ảnh màn hình** đã đúng cỡ 1280×800: tiếng Việt trong `store-assets/vi/`, tiếng Anh trong `store-assets/en/`. Tải đúng bộ cho từng ngôn ngữ trên Dashboard.
 5. **Mô tả theo ngôn ngữ:** gói đã có `_locales` cho tiếng Anh (mặc định) và tiếng Việt. Dashboard cho phép viết phần giới thiệu riêng cho từng ngôn ngữ.
 

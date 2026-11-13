@@ -43,11 +43,28 @@ jobs:
         if: steps.diff.outputs.changed == 'true'
         working-directory: tests
         run: npm test
+      # Người dùng store chỉ nhận bộ lọc mới khi có phiên bản mới, và store chỉ nhận số phiên bản lớn hơn bản đã nộp
+      - name: Tăng số phiên bản và đóng gói
+        if: steps.diff.outputs.changed == 'true'
+        id: release
+        run: |
+          python bump_version.py
+          python package_extension.py
+          echo "version=$(python -c "import json; print(json.load(open('manifest.json', encoding='utf-8'))['version'])")" >> "$GITHUB_OUTPUT"
       - name: Commit bộ lọc mới
         if: steps.diff.outputs.changed == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add rules.json popup_domains.json cosmetic_rules.js
-          git commit -m "chore: cập nhật bộ lọc tự động"
+          git add rules.json popup_domains.json cosmetic_rules.js manifest.json
+          git commit -m "chore: cập nhật bộ lọc tự động (phiên bản ${{ steps.release.outputs.version }})"
           git push
+      # Chỉ tải lên sau khi đã commit thành công, để gói trong Artifacts luôn khớp với phiên bản trong repo
+      - name: Lưu gói để nộp lên store
+        if: steps.diff.outputs.changed == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: PopupBlockerPro-${{ steps.release.outputs.version }}
+          path: dist/PopupBlockerPro_v${{ steps.release.outputs.version }}.zip
+          if-no-files-found: error
+          retention-days: 90
