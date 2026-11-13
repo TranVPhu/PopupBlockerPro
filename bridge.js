@@ -276,12 +276,14 @@
             if (e.key === 'Escape') {
                 stopPicker();
             } else if (e.key === 'ArrowUp') {
+                e.preventDefault(); // Không để trang cuộn đi trong lúc đang chọn
                 // Mở rộng vùng chọn lên thẻ cha bao bọc (giống uBlock Origin)
                 if (hoveredElement && hoveredElement.parentElement && hoveredElement.parentElement !== document.body) {
                     elementStack.push(hoveredElement);
                     updateHighlight(hoveredElement.parentElement);
                 }
             } else if (e.key === 'ArrowDown') {
+                e.preventDefault();
                 // Thu hẹp vùng chọn về thẻ con trước đó
                 if (elementStack.length > 0) {
                     const prev = elementStack.pop();

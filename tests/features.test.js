@@ -62,6 +62,16 @@ runTest(async () => {
     check('@@: IMA SDK allowed on vtvgo (video would break otherwise)', !ima.some(r => /popup_ad_rules:[1-4]$/.test(r)) , ima.join());
     const imaOther = await outcome(sw, 'https://imasdk.googleapis.com/js/sdkloader/ima3.js', 'script', 'https://example.com');
     check('IMA SDK still blocked elsewhere', imaOther.some(r => /popup_ad_rules:1$/.test(r)), imaOther.join());
+    // violet.vn để icon menu thư viện trên cùng tên miền quảng cáo bị ABPVN chặn: icon phải hiện, banner vẫn bị chặn
+    const isAllowed = (rules) => rules.length > 0 && rules.every((r) => /:1\d{5}$/.test(r));
+    const violetIcon = await outcome(sw, 'https://qc.violet.vn/icon/giaoan.png', 'image', 'https://violet.vn');
+    check('violet.vn library icons are allowed', isAllowed(violetIcon), violetIcon.join());
+    const violetContact = await outcome(sw, 'https://qc.violet.vn/img/phone.png', 'image', 'https://violet.vn');
+    check('violet.vn contact icons are allowed', isAllowed(violetContact), violetContact.join());
+    const violetBanner = await outcome(sw, 'https://qc.violet.vn/TSVB2/300x250.jpg', 'image', 'https://violet.vn');
+    check('violet.vn ad banner still blocked', violetBanner.length > 0 && !isAllowed(violetBanner), violetBanner.join());
+    const violetIconElsewhere = await outcome(sw, 'https://qc.violet.vn/icon/giaoan.png', 'image', 'https://example.com');
+    check('violet.vn icon exception only applies on violet.vn', violetIconElsewhere.length > 0 && !isAllowed(violetIconElsewhere), violetIconElsewhere.join());
 
     // === Bộ đếm ===
     const web = await ctx.newPage();

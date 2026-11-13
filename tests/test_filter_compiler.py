@@ -228,6 +228,10 @@ class CompileFiltersTest(unittest.TestCase):
         self.assertIn("tinhte.vn", cosmetic["generichide"])
         self.assertIn("tinhte.vn", cosmetic["sites"], "Thiếu quy tắc bổ sung EXTRA_COSMETIC_LINES")
 
+        rules = json.loads(self.read("rules.json"))
+        allow_filters = {r["condition"].get("urlFilter") for r in rules if r["action"]["type"] == "allow"}
+        self.assertIn("||qc.violet.vn/icon/", allow_filters, "Thiếu quy tắc bổ sung EXTRA_EXCEPTION_LINES")
+
 
 if __name__ == "__main__":
     unittest.main()

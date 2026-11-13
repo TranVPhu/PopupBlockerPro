@@ -65,6 +65,13 @@ EXTRA_COSMETIC_LINES = [
     'tinhte.vn##.ads-middle'
 ]
 
+# Bổ sung ngoại lệ cho ABPVN: họ chặn cả tên miền qc.violet.vn, nhưng violet.vn để icon menu thư viện (Giáo án, Bài giảng...)
+# và icon liên hệ trên chính tên miền này, nên các liên kết đó bị vô hình. Chỉ cho phép ảnh trong hai thư mục này, banner vẫn bị chặn
+EXTRA_EXCEPTION_LINES = [
+    '@@||qc.violet.vn/icon/$image,domain=violet.vn',
+    '@@||qc.violet.vn/img/$image,domain=violet.vn'
+]
+
 COSMETIC_RULE_REGEX = re.compile(r"^([^#]*)#(@)?#(.+)$")
 # Cú pháp riêng của adblocker mà CSS không hiểu. Dấu ngoặc nhọn có thể chèn CSS tùy ý nên cũng loại bỏ.
 UNSUPPORTED_SELECTOR_REGEX = re.compile(
@@ -378,6 +385,7 @@ def compile_filters(ext_dir, progress=None, max_domains=MAX_DOMAINS, strict=Fals
             failed_urls.append(url)
         if progress:
             progress(idx, len(FILTER_LIST_URLS), url, error)
+    parse_exception_lines(EXTRA_EXCEPTION_LINES, exceptions, popup_exceptions, generichide)
 
     # Nhóm third-party ít (~2 nghìn) nên giữ trọn, nhóm chặn mọi nơi lấp phần còn lại theo thứ tự nguồn lọc
     third_list = [d for d in third_party if d not in any_party][:max_domains]

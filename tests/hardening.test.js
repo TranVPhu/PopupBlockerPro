@@ -9,6 +9,7 @@ runTest(async () => {
     const pages = {
       '/overlay': '<!doctype html><meta charset="utf-8"><title>t</title><div id="ov" style="position:fixed;inset:0;z-index:9999"></div><div style="height:2000px">x</div>',
       '/suspect': '<!doctype html><meta charset="utf-8"><title>t</title><div id="s" class="overlay-ad" style="position:fixed;inset:0;opacity:0"></div>',
+      '/tall': '<!doctype html><meta charset="utf-8"><title>t</title><div id="p" style="width:300px;height:200px;background:blue"><span id="c">x</span></div><div style="height:4000px"></div>',
       '/zap': '<!doctype html><meta charset="utf-8"><title>t</title><div id="z" style="width:300px;height:200px;background:red">zap me</div>'
     };
     res.end(pages[req.url] || '<!doctype html><meta charset="utf-8"><title>t</title><div class="ad-banner" id="ad">ad</div><button id="b">x</button>');
@@ -38,6 +39,17 @@ runTest(async () => {
   check('invisible overlay hidden on click, node kept', await keptButHidden('ov'));
   await page.goto(base + '/suspect');
   check('suspect overlay hidden, node kept', await keptButHidden('s'));
+
+  // Bộ chọn phần tử: phím mũi tên chỉ đổi vùng chọn, không được cuộn trang đi mất
+  await page.goto(base + '/tall'); await page.waitForLoadState('load'); await page.waitForTimeout(300);
+  const pickTabId = await sw.evaluate(() => chrome.tabs.query({ url: 'http://localhost/*' }).then(t => t[0].id));
+  await sw.evaluate((id) => chrome.tabs.sendMessage(id, { action: 'start_element_picker' }, { frameId: 0 }), pickTabId);
+  await page.mouse.move(40, 40); await page.mouse.move(42, 42); await page.waitForTimeout(200);
+  for (const key of ['ArrowDown', 'ArrowDown', 'ArrowUp', 'ArrowDown', 'ArrowDown']) await page.keyboard.press(key);
+  await page.waitForTimeout(400);
+  check('picker arrow keys do not scroll the page', (await page.evaluate(() => scrollY)) === 0, 'scrollY=' + await page.evaluate(() => scrollY));
+  await page.keyboard.press('Escape');
+  check('picker closes on Escape', (await page.locator('#pb-picker-banner').count()) === 0);
 
   // Zapper
   await page.goto(base + '/zap'); await page.waitForLoadState('load'); await page.waitForTimeout(300);

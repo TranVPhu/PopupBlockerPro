@@ -22,7 +22,7 @@ Tài liệu nội bộ để điền vào Developer Dashboard. Phần nội dung
 | `declarativeNetRequestFeedback` | Reads which rules matched so the extension can show the user how many requests were blocked. The data stays on the device. | `syncDnrCounts` |
 | `webNavigation` | Detects new tabs opened by a page and follows their redirects, so that ad tabs can be closed based on their real destination. | `watchNewTab`, `onCommitted` |
 | `scripting` | Injects the filter CSS as a user stylesheet so that pages cannot remove or override the hiding rules. | `updateCosmeticCss` |
-| `storage` | Saves settings on the device: on/off state, trusted sites, paused sites, hidden elements and the block count. | `background.js`, `popup.js`, `bridge.js` |
+| `storage` | Saves settings on the device: on/off state, interface language, trusted sites, paused sites, hidden elements and the block count. | `background.js`, `popup.js`, `bridge.js` |
 | `alarms` | Ends a temporary pause on time and refreshes the block count periodically, because the service worker does not stay running. | `TEMP_ALLOW_ALARM`, `DNR_COUNT_ALARM` |
 | `contextMenus` | Adds right-click commands to hide an element, restore hidden elements and create a QR code for a link. | `chrome.contextMenus.create` |
 | Host `<all_urls>` | Popups, ads and overlays appear on any website, so blocking must work on every site the user visits. No page data leaves the device. | `content_scripts`, `insertCSS` |
@@ -31,10 +31,11 @@ Tài liệu nội bộ để điền vào Developer Dashboard. Phần nội dung
 
 ## Khai báo dữ liệu (Data usage)
 
-Sự thật cần khai, đã đối chiếu với code ngày 31/10/2026: tiện ích không có request mạng nào của riêng nó (lời gọi `fetch` duy nhất đọc file trong gói), và không gửi dữ liệu ra ngoài.
+Sự thật cần khai, đã đối chiếu với code ngày 13/11/2026: tiện ích không có request mạng nào của riêng nó (lời gọi `fetch` duy nhất đọc file trong gói), và không gửi dữ liệu ra ngoài.
 
 - Tiện ích có **xử lý** địa chỉ trang và nội dung trang ngay trên máy, và **lưu** tên miền người dùng tự thêm.
 - Chính sách định nghĩa "user data" rất rộng, gồm cả thông tin về việc người dùng dùng trình duyệt. Vì vậy vẫn cần có chính sách quyền riêng tư, kể cả khi không gửi gì đi.
+- Đã khai trên Dashboard: tick **Web history**, **Website content** và **User activity** (xử lý trên máy vẫn phải khai, theo User Data FAQ của store). Chính sách quyền riêng tư đã mô tả cả ba.
 - Khi điền form, hãy đọc định nghĩa của từng mục trên Dashboard, và tick ba cam kết: không bán dữ liệu, không dùng cho mục đích không liên quan, không dùng để xét tín dụng.
 
 Nếu sau này thêm đồng bộ tài khoản, thanh toán hoặc bất kỳ máy chủ nào cho gói Pro, phải cập nhật form này, `privacy.html`, và báo rõ cho người dùng hiện có.
