@@ -426,14 +426,25 @@
     }, true);
 
     // 9. Dọn dẹp lớp phủ vô hình & Tự động tua Video Ads
+    // Chỉ nút của các trình phát đã biết. Không dùng so khớp một phần tên class (VD: "skip-ad"): trang lạ có thể đặt tên đó cho nút khác
+    const SKIP_AD_SELECTOR = '.jw-skip, .vjs-skip-button, .videoAdUiSkipButton, .ytp-ad-skip-button, .ytp-skip-ad-button';
+    // Nút đã bấm khi đang hiện: mỗi lần trang thay đổi lại quét tiếp, không được bấm lặp lại. Ẩn đi rồi hiện lại (quảng cáo mới) thì bấm lại
+    const clickedSkipButtons = new WeakSet();
+
     function scanAndCleanPage() {
-        if (!isSiteProtected || !document.body) return;
+        // Chưa đọc xong cấu hình thì chưa biết trang có được bảo vệ không: không tự bấm hay tua video ở trang tin cậy.
+        // Đọc xong sẽ quét lại (syncProtectionState)
+        if (!protectionKnown || !isSiteProtected || !document.body) return;
 
         // Tự động bấm nút Bỏ qua quảng cáo video nếu có
-        const skipButtons = document.querySelectorAll(
-            '.jw-skip, .vjs-skip-button, .videoAdUiSkipButton, .ytp-ad-skip-button, .ytp-skip-ad-button, [class*="skip-ad"]'
-        );
-        skipButtons.forEach(btn => { if (btn.offsetParent !== null) btn.click(); });
+        document.querySelectorAll(SKIP_AD_SELECTOR).forEach((btn) => {
+            if (btn.offsetParent === null) {
+                clickedSkipButtons.delete(btn);
+            } else if (!clickedSkipButtons.has(btn)) {
+                clickedSkipButtons.add(btn);
+                btn.click();
+            }
+        });
 
         // Tự động tua hết video ads
         const adPlayers = document.querySelectorAll('.jw-flag-ads video, .vjs-ad-playing video, .ad-showing video');
