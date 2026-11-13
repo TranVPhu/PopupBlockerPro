@@ -28,6 +28,7 @@
   - **Rà chọn (Picker)**: Rà chuột để chọn và lưu quy tắc ẩn, dùng phím `[↑]` và `[↓]` để mở rộng hoặc thu hẹp vùng chọn.
 - ⏸️ **Tạm bỏ chặn theo trang**: Tắt chặn cho trang đang xem bằng 1 nút trong popup, sau 30 phút tự chặn lại.
 - 📱 **Tạo mã QR cho đường link**: Từ popup hoặc menu chuột phải. Có thể sửa link, tải ảnh PNG hoặc sao chép ảnh. Mã được tạo ngay trên máy.
+- ⚙️ **Trang cài đặt**: Xem và sửa danh sách trang tin cậy, các trang đang tạm bỏ chặn và các phần tử đã ẩn. Mở từ liên kết "Cài đặt" trong popup.
 - 🌐 **Giao diện tiếng Việt và tiếng Anh**: Chọn ngay trong popup. Lần đầu tự theo ngôn ngữ của trình duyệt.
 - 🔋 **Tiết kiệm tài nguyên khi trang không đổi**: Dùng `MutationObserver` có debounce thay cho vòng quét định kỳ trong trang.
 - 📥 **Không can thiệp tải file**: Các link `blob:`, `data:` và thuộc tính `download` được bỏ qua khi kiểm tra click tự động.
@@ -76,6 +77,7 @@ PopupBlockerPro/
 ├── bridge.js            # Content Script (ISOLATED): lọc CSS, ẩn lớp phủ, bộ chọn phần tử
 ├── inject.js            # Script trong trang (MAIN): kiểm soát window.open, giả lập thư viện kiểm tra
 ├── popup.html, popup.js # Giao diện điều khiển, danh sách tin cậy và thống kê
+├── options.html, options.js # Trang cài đặt: trang tin cậy, trang tạm bỏ chặn, phần tử đã ẩn
 ├── qr.html, qr.js       # Trang tạo mã QR
 ├── donate.html          # Trang ủng hộ, cần thêm ảnh momo-qr.png thì link mới hiện
 ├── privacy.html         # Chính sách quyền riêng tư và giấy phép

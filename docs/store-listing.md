@@ -12,6 +12,7 @@ WHAT IT DOES
 • Hides ad elements, cookie banners, invisible click-trap overlays and "please turn off your ad blocker" dialogs.
 • Lets you pick elements to hide: save the rule, or quick-hide them for the current view only.
 • Pause on a site with one click. Blocking resumes by itself after 30 minutes. You can also add a site to your trusted list.
+• A settings page to review and edit your trusted sites, paused sites and hidden elements.
 • Shows how many requests were blocked on the current page and in total.
 • Creates a QR code for the current page or any link, from the panel or the right-click menu. Codes are made on your device.
 • Interface in English and Vietnamese, selectable in the panel.
@@ -37,6 +38,7 @@ TÍNH NĂNG
 • Ẩn phần tử quảng cáo, bảng thông báo cookie, lớp phủ vô hình bẫy cú click và hộp thoại đòi tắt chặn quảng cáo.
 • Tự chọn phần tử cần ẩn: lưu thành quy tắc, hoặc ẩn nhanh chỉ trong lần xem hiện tại.
 • Tạm bỏ chặn trên một trang chỉ với một nút, sau 30 phút tự chặn lại. Bạn cũng có thể thêm trang vào danh sách tin cậy.
+• Trang cài đặt để xem và sửa danh sách trang tin cậy, trang đang tạm bỏ chặn và phần tử đã ẩn.
 • Hiện số lượt chặn trên trang đang xem và tổng cộng.
 • Tạo mã QR cho trang đang mở hoặc một đường link bất kỳ, từ bảng điều khiển hoặc menu chuột phải. Mã được tạo ngay trên máy.
 • Giao diện tiếng Việt và tiếng Anh, chọn ngay trong bảng điều khiển.

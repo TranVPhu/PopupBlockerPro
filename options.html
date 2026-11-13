@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title data-i18n="optionsPageTitle">Cài đặt</title>
+    <style>
+        :root {
+            color-scheme: dark;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 24px 16px 48px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-size: 14px;
+            line-height: 1.5;
+            background: #1e1e2e;
+            color: #cdd6f4;
+        }
+
+        h1 {
+            font-size: 22px;
+            color: #89b4fa;
+            margin: 0 0 4px;
+        }
+
+        h2 {
+            font-size: 16px;
+            color: #89b4fa;
+            margin: 0 0 4px;
+        }
+
+        section {
+            background: #181825;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 10px;
+            padding: 16px;
+            margin-top: 18px;
+        }
+
+        .help {
+            color: #a6adc8;
+            font-size: 12.5px;
+            margin: 0 0 12px;
+        }
+
+        ul {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        li.row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 7px 0;
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        li.row .name {
+            flex: 1;
+            min-width: 0;
+            word-break: break-all;
+        }
+
+        li.row .meta {
+            color: #a6adc8;
+            font-size: 12px;
+        }
+
+        .selector {
+            font: 12px/1.4 Consolas, monospace;
+            color: #f9e2af;
+        }
+
+        .empty {
+            color: #a6adc8;
+            font-style: italic;
+            padding: 6px 0;
+        }
+
+        button {
+            border: none;
+            border-radius: 6px;
+            padding: 6px 12px;
+            font-weight: 600;
+            font-size: 12.5px;
+            cursor: pointer;
+            background: #45475a;
+            color: #cdd6f4;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        .primary {
+            background: #89b4fa;
+            color: #11111b;
+        }
+
+        .danger {
+            color: #f38ba8;
+        }
+
+        form {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            min-width: 0;
+            padding: 7px 10px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: #11111b;
+            color: #cdd6f4;
+            font-size: 13px;
+        }
+
+        input[type="text"]:focus {
+            outline: 1px solid #89b4fa;
+        }
+
+        .message {
+            min-height: 18px;
+            margin: 0 0 8px;
+            font-size: 12.5px;
+            color: #f38ba8;
+        }
+
+        details {
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
+            padding: 6px 0;
+        }
+
+        summary {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+        }
+
+        summary .name {
+            flex: 1;
+            word-break: break-all;
+        }
+
+        details ul {
+            padding: 4px 0 4px 18px;
+        }
+
+        details li.row {
+            border-top: none;
+        }
+    </style>
+</head>
+
+<body>
+    <h1 data-i18n="optionsHeading">⚙️ Cài đặt</h1>
+
+    <section>
+        <h2 data-i18n="trustedHeading">Trang tin cậy</h2>
+        <p class="help" data-i18n="trustedHelp">Các trang này không bị chặn gì. Tên miền con cũng được tính.</p>
+        <form id="trustedForm">
+            <input type="text" id="trustedInput" autocomplete="off" spellcheck="false" data-i18n-placeholder="trustedPlaceholder"
+                data-i18n-label="trustedInputLabel" aria-label="Tên miền cần thêm" placeholder="ví dụ: example.com">
+            <button type="submit" class="primary" data-i18n="trustedAdd">Thêm</button>
+        </form>
+        <p class="message" id="trustedMessage" role="status"></p>
+        <ul id="trustedList"></ul>
+    </section>
+
+    <section>
+        <h2 data-i18n="pausedHeading">Đang tạm bỏ chặn</h2>
+        <p class="help" data-i18n="pausedHelp">Tự chặn lại khi hết giờ.</p>
+        <ul id="pausedList"></ul>
+    </section>
+
+    <section>
+        <h2 data-i18n="hiddenHeading">Phần tử đã ẩn</h2>
+        <p class="help" data-i18n="hiddenHelp">Các phần tử bạn đã chọn ẩn, theo từng trang. Gỡ một mục để hiện lại phần tử đó, có thể cần tải lại trang.</p>
+        <ul id="hiddenList"></ul>
+    </section>
+
+    <script src="shared.js"></script>
+    <script src="i18n.js"></script>
+    <script src="options.js"></script>
+</body>
+
+</html>

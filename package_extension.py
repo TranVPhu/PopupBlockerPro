@@ -36,6 +36,8 @@ def create_store_package():
         "inject.js",
         "popup.html",
         "popup.js",
+        "options.html",
+        "options.js",
         "qr.html",
         "qr.js",
         "donate.html",

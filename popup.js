@@ -148,6 +148,12 @@ pauseBtn.addEventListener('click', () => {
     });
 });
 
+document.getElementById('settingsLink').addEventListener('click', (e) => {
+    e.preventDefault();
+    chrome.runtime.openOptionsPage();
+    window.close();
+});
+
 // Link ủng hộ chỉ hiện khi gói cài đặt có ảnh mã MoMo
 fetch(chrome.runtime.getURL('momo-qr.png')).then((resp) => {
     if (resp.ok) document.getElementById('donateLink').hidden = false;

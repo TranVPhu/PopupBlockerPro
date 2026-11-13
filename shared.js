@@ -7,6 +7,15 @@ function pbLogWarning(context) {
     return (err) => console.warn(`[Popup & Overlay Blocker] ${context}:`, err);
 }
 
+// Tên miền người dùng nhập (có thể dán cả địa chỉ đầy đủ) -> dạng dùng trong danh sách, hoặc '' nếu không hợp lệ.
+// Chỉ nhận chữ, số, dấu gạch và dấu chấm: các quy tắc mạng (requestDomains) từ chối mọi dạng khác
+function pbNormalizeHost(input) {
+    let host = String(input || '').trim().toLowerCase();
+    host = host.replace(/^[a-z][a-z0-9+.-]*:\/\//, '').split(/[/?#]/)[0].replace(/:\d+$/, '').replace(/^www\./, '').replace(/\.$/, '');
+    if (host.length > 253) return '';
+    return /^([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)*[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(host) ? host : '';
+}
+
 function pbHostInList(host, list) {
     return list.some(domain => host === domain || host.endsWith('.' + domain));
 }
