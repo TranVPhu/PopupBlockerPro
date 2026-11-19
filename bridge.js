@@ -169,6 +169,7 @@
         if (!selector) return;
 
         targetEl.style.setProperty('display', 'none', 'important');
+        closeHiddenModals();
 
         chrome.storage.local.get(['customHidden'], (res) => {
             const customHidden = res.customHidden || {};
@@ -213,7 +214,10 @@
                 activeEl.style.opacity = '0';
                 // Ẩn chứ không xóa: xóa node do React quản lý có thể làm sập cả trang
                 const zapped = activeEl;
-                setTimeout(() => zapped.style.setProperty('display', 'none', 'important'), 200);
+                setTimeout(() => {
+                    zapped.style.setProperty('display', 'none', 'important');
+                    closeHiddenModals();
+                }, 200);
             }
             stopZapper();
         }
@@ -436,6 +440,9 @@
         // Đọc xong sẽ quét lại (syncProtectionState)
         if (!protectionKnown || !isSiteProtected || !document.body) return;
 
+        // Bộ lọc vừa áp dụng (kể cả phần tử người dùng tự ẩn) có thể đã ẩn một <dialog> đang mở
+        closeHiddenModals();
+
         // Tự động bấm nút Bỏ qua quảng cáo video nếu có
         document.querySelectorAll(SKIP_AD_SELECTOR).forEach((btn) => {
             if (btn.offsetParent === null) {
@@ -511,6 +518,16 @@
         });
     }
 
+    // <dialog> mở bằng showModal() khóa tương tác với toàn bộ phần còn lại của trang. Ẩn nó bằng CSS thì trang vẫn bị khóa,
+    // còn người dùng không thấy hộp thoại để đóng: không bấm được gì nữa (VD: sofaflix). Phải đóng hẳn hộp thoại
+    function closeHiddenModals() {
+        document.querySelectorAll('dialog').forEach((dialog) => {
+            try {
+                if (dialog.matches(':modal') && !dialog.checkVisibility()) dialog.close();
+            } catch (_) { }
+        });
+    }
+
     function hideAntiAdblockDialogs(root) {
         if (!isSiteProtected || !root) return;
         const textNodes = [];
@@ -538,6 +555,7 @@
 
             // Ẩn bằng CSS chứ không xóa node: xóa node do React quản lý có thể làm sập cả trang khi React cập nhật lại
             dialog.setAttribute('data-pb-hidden', '');
+            closeHiddenModals();
             hideDetachedBackdrops();
             setTimeout(hideDetachedBackdrops, 300);
             reportDialogHidden();
@@ -577,7 +595,16 @@
     const domObserver = new MutationObserver((mutations) => {
         if (!isSiteProtected) return;
         // Kiểm tra ngay, không debounce: callback chạy trước khi trình duyệt vẽ nên hộp thoại không kịp nháy lên màn hình
-        mutations.forEach((m) => m.addedNodes.forEach(hideAntiAdblockDialogs));
+        mutations.forEach((m) => {
+            if (m.type === 'attributes') {
+                // <dialog> có sẵn trong trang vừa được mở (showModal/show): lúc chèn vào nó chưa hiện nên chưa bị nhận diện
+                if (m.target.tagName === 'DIALOG' && m.target.open) hideAntiAdblockDialogs(m.target);
+            } else {
+                m.addedNodes.forEach(hideAntiAdblockDialogs);
+            }
+        });
+        // Hộp thoại đã bị bộ lọc ẩn từ trước, giờ mới được mở
+        if (mutations.some((m) => m.type === 'attributes' && m.target.tagName === 'DIALOG')) closeHiddenModals();
         if (scanTimeout) clearTimeout(scanTimeout);
         scanTimeout = setTimeout(() => {
             scanAndCleanPage();
@@ -585,7 +612,7 @@
     });
 
     function startObserving() {
-        domObserver.observe(document.body, { childList: true, subtree: true });
+        domObserver.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['open'] });
         scanAndCleanPage();
         // Hộp thoại đã có sẵn trong HTML trước khi observer bắt đầu theo dõi
         hideAntiAdblockDialogs(document.body);

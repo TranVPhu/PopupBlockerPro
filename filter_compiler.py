@@ -62,7 +62,11 @@ EXTRA_COSMETIC_LINES = [
     'tinhte.vn##.col-right .hidden-md > div[style*="height:250px"]',
     'tinhte.vn##.col-right .hidden-md > div:has(> div[style*="height:250px"])',
     'tinhte.vn##.col-right .hidden-md > .main:has(> .item[style*="height:"])',
-    'tinhte.vn##.ads-middle'
+    'tinhte.vn##.ads-middle',
+    # Popup quảng cáo nhà cái (OK9) dạng <dialog> mở bằng showModal(). Trang hay đổi tên miền nên liệt kê cả tên cũ.
+    # Ẩn bằng CSS thì bridge.js đóng luôn hộp thoại, nếu không phần còn lại của trang sẽ bị khóa
+    'sofaflix.cam,sofaflix.hair,sofaflix.rest##dialog.site-popup-row',
+    'sofaflix.cam,sofaflix.hair,sofaflix.rest##dialog:has([data-ad-placement])'
 ]
 
 # Bổ sung ngoại lệ cho ABPVN: họ chặn cả tên miền qc.violet.vn, nhưng violet.vn để icon menu thư viện (Giáo án, Bài giảng...)

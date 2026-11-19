@@ -227,6 +227,7 @@ class CompileFiltersTest(unittest.TestCase):
         cosmetic = json.loads(js[js.index("{"):js.rindex("}") + 1])
         self.assertIn("tinhte.vn", cosmetic["generichide"])
         self.assertIn("tinhte.vn", cosmetic["sites"], "Thiếu quy tắc bổ sung EXTRA_COSMETIC_LINES")
+        self.assertIn("dialog.site-popup-row", cosmetic["sites"].get("sofaflix.cam", []), "Thiếu quy tắc ẩn popup OK9")
 
         rules = json.loads(self.read("rules.json"))
         allow_filters = {r["condition"].get("urlFilter") for r in rules if r["action"]["type"] == "allow"}

@@ -29,6 +29,31 @@ const PAGES = {
     // Lớp nền tách rời, kiểu Bootstrap
     '/backdrop': `<body>${FILLER}<div id="bd" style="position:fixed;inset:0;background:rgba(0,0,0,.5)"></div><div id="dlg" style="position:fixed;inset:20%;background:#fff">Ad-blocker detected</div>`,
 
+    // <dialog> mở bằng showModal() khóa cả trang: ẩn bằng CSS thôi thì không bấm được gì nữa (sofaflix).
+    // React chèn hộp thoại trước, gọi showModal() sau trong useEffect
+    '/modalDialog': `<body><button id="search" onclick="window.clicked=1">Tìm kiếm</button>${FILLER}<script>
+        setTimeout(() => {
+            const d = document.createElement('dialog'); d.id = 'dlg';
+            d.innerHTML = 'Khi web bị chặn, hãy vào trang dự phòng. Đừng quên tắt Adblock ủng hộ server nhé! <button>Đã hiểu</button>';
+            document.body.appendChild(d);
+            setTimeout(() => { d.showModal(); window.shown = 1; }, 200);
+        }, 300);
+    </script>`,
+    // Chèn và mở cùng lúc
+    '/modalDialogNow': `<body><button id="search" onclick="window.clicked=1">Tìm kiếm</button>${FILLER}<script>
+        setTimeout(() => {
+            const d = document.createElement('dialog'); d.id = 'dlg'; d.textContent = 'Please disable your AdBlock to continue';
+            document.body.appendChild(d); d.showModal(); window.shown = 1;
+        }, 300);
+    </script>`,
+    // Popup quảng cáo dạng <dialog> người dùng đã tự ẩn bằng menu chuột phải (bộ lọc riêng của trang)
+    '/adDialog': `<body><button id="search" onclick="window.clicked=1">Tìm kiếm</button>${FILLER}<script>
+        setTimeout(() => {
+            const d = document.createElement('dialog'); d.id = 'ad'; d.textContent = 'Quảng cáo nhà cái';
+            document.body.appendChild(d); d.showModal(); window.shown = 1;
+        }, 300);
+    </script>`,
+
     // Nút nổi nhỏ kiểu vnexpress: ẩn nhưng không đụng tới cuộn trang
     '/smallBtn': `<body>${FILLER}<a id="dlg" href="#" style="position:fixed;bottom:0;right:0;width:150px;height:40px">Hướng dẫn tắt Adblock</a>`,
 
@@ -92,6 +117,38 @@ runTest(async () => {
     await page.goto(base + '/smallBtn');
     check('small nag button hidden', await hiddenOnceExists('#dlg'));
     check('small button does not touch scroll', !(await page.evaluate(() => document.documentElement.hasAttribute('data-pb-unlock'))));
+
+    // Hộp thoại modal bị ẩn phải được đóng hẳn, nếu không phần còn lại của trang vẫn bị khóa
+    const pageUsable = async (dialogSel) => {
+        await page.waitForFunction(() => window.shown === 1, null, { polling: 50 });
+        const released = await eventually(() => page.evaluate((sel) => {
+            const d = document.querySelector(sel);
+            return !!d && !d.open && !d.matches(':modal');
+        }, dialogSel));
+        let clicked = false;
+        try {
+            await page.click('#search', { timeout: 3000 });
+            clicked = await page.evaluate(() => window.clicked === 1);
+        } catch (_) { }
+        return { released, clicked };
+    };
+    for (const p of ['/modalDialog', '/modalDialogNow']) {
+        await page.goto(base + p);
+        await page.waitForFunction(() => window.shown === 1, null, { polling: 50 });
+        check(`modal <dialog> hidden: ${p}`, await hiddenOnceExists('#dlg'));
+        const { released, clicked } = await pageUsable('#dlg');
+        check(`hidden modal <dialog> closed: ${p}`, released);
+        check(`page clickable after hiding modal <dialog>: ${p}`, clicked);
+    }
+
+    await sw.evaluate(() => chrome.storage.local.set({ customHidden: { localhost: ['#ad'] } }));
+    await page.goto(base + '/adDialog');
+    await page.waitForFunction(() => window.shown === 1, null, { polling: 50 });
+    check('user-hidden ad <dialog> hidden', await hiddenOnceExists('#ad'));
+    const adDialog = await pageUsable('#ad');
+    check('user-hidden modal <dialog> closed', adDialog.released);
+    check('page clickable after user hides modal <dialog>', adDialog.clicked);
+    await sw.evaluate(() => chrome.storage.local.remove('customHidden'));
 
     for (const p of ['/article', '/fixedApp', '/normalModal', '/roadblock', '/banner']) {
         await page.goto(base + p);
