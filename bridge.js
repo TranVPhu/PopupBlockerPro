@@ -380,6 +380,7 @@
                 }));
             }
             applyCosmeticFilter(res.customHidden || {});
+            restoreFinishedAds(); // Vừa tạm bỏ chặn giữa lúc đang có quảng cáo: trả lại tốc độ & âm thanh
             if (isSiteProtected) {
                 scanAndCleanPage();
             }
@@ -435,6 +436,48 @@
     // Nút đã bấm khi đang hiện: mỗi lần trang thay đổi lại quét tiếp, không được bấm lặp lại. Ẩn đi rồi hiện lại (quảng cáo mới) thì bấm lại
     const clickedSkipButtons = new WeakSet();
 
+    // Không tua thẳng tới cuối quảng cáo: trình phát dùng MediaSource (YouTube) chưa tải phần cuối nên video đứng im ở đó,
+    // sự kiện ended không bao giờ đến và trình phát kẹt luôn ở màn hình quảng cáo. Phát nhanh & tắt tiếng thì quảng cáo vẫn tự kết thúc
+    const AD_PLAYER_SELECTOR = '.jw-flag-ads, .vjs-ad-playing, .ad-showing';
+    const AD_VIDEO_SELECTOR = '.jw-flag-ads video, .vjs-ad-playing video, .ad-showing video';
+    const AD_PLAYBACK_RATE = 16;
+    // Video đang được phát nhanh -> tốc độ & trạng thái tắt tiếng trước đó, để trả lại khi hết quảng cáo
+    const spedUpAds = new Map();
+    const watchedAdPlayers = new WeakSet();
+
+    function speedUpAdVideos() {
+        document.querySelectorAll(AD_VIDEO_SELECTOR).forEach((video) => {
+            if (!spedUpAds.has(video)) {
+                spedUpAds.set(video, { rate: video.playbackRate, muted: video.muted });
+                watchAdPlayer(video.closest(AD_PLAYER_SELECTOR));
+            }
+            video.muted = true;
+            // Nạp quảng cáo tiếp theo (load()) đưa tốc độ về mặc định -> đặt lại
+            if (video.playbackRate !== AD_PLAYBACK_RATE) video.playbackRate = AD_PLAYBACK_RATE;
+        });
+    }
+
+    function restoreFinishedAds() {
+        spedUpAds.forEach((saved, video) => {
+            if (video.isConnected && video.matches(AD_VIDEO_SELECTOR) && isSiteProtected) return;
+            spedUpAds.delete(video);
+            // Trình phát có thể đã tự đặt lại tốc độ/âm thanh của người dùng cho video chính: khi đó giữ nguyên
+            if (video.playbackRate === AD_PLAYBACK_RATE) video.playbackRate = saved.rate;
+            if (video.muted && !saved.muted) video.muted = false;
+        });
+    }
+
+    // YouTube dùng chung một thẻ <video> cho quảng cáo và video chính: phải trả lại tốc độ ngay khi trình phát bỏ class quảng cáo,
+    // không đợi lần quét sau (video chính sẽ bị phát 16x trong lúc đó)
+    function watchAdPlayer(player) {
+        if (!player || watchedAdPlayers.has(player)) return;
+        watchedAdPlayers.add(player);
+        new MutationObserver(() => {
+            restoreFinishedAds();
+            if (protectionKnown && isSiteProtected) speedUpAdVideos();
+        }).observe(player, { attributes: true, attributeFilter: ['class'] });
+    }
+
     function scanAndCleanPage() {
         // Chưa đọc xong cấu hình thì chưa biết trang có được bảo vệ không: không tự bấm hay tua video ở trang tin cậy.
         // Đọc xong sẽ quét lại (syncProtectionState)
@@ -453,14 +496,9 @@
             }
         });
 
-        // Tự động tua hết video ads
-        const adPlayers = document.querySelectorAll('.jw-flag-ads video, .vjs-ad-playing video, .ad-showing video');
-        adPlayers.forEach(video => {
-            if (video.duration && isFinite(video.duration) && video.currentTime < video.duration) {
-                video.muted = true;
-                video.currentTime = video.duration;
-            }
-        });
+        // Cho quảng cáo video chạy nhanh cho xong
+        restoreFinishedAds();
+        speedUpAdVideos();
 
         // Chỉ tìm kiếm các phần tử nghi vấn là lớp phủ (thay vì toàn bộ DOM)
         const suspects = document.querySelectorAll(
@@ -605,10 +643,13 @@
         });
         // Hộp thoại đã bị bộ lọc ẩn từ trước, giờ mới được mở
         if (mutations.some((m) => m.type === 'attributes' && m.target.tagName === 'DIALOG')) closeHiddenModals();
-        if (scanTimeout) clearTimeout(scanTimeout);
-        scanTimeout = setTimeout(() => {
-            scanAndCleanPage();
-        }, 300);
+        // Gom lại tối đa 300ms chứ không hoãn mãi: trang thay đổi liên tục (đồng hồ đếm của trình phát video) sẽ không bao giờ được quét
+        if (!scanTimeout) {
+            scanTimeout = setTimeout(() => {
+                scanTimeout = null;
+                scanAndCleanPage();
+            }, 300);
+        }
     });
 
     function startObserving() {
