@@ -9,6 +9,8 @@ const countSpan = document.getElementById('count');
 const tabCountSpan = document.getElementById('tabCount');
 const domainBox = document.getElementById('currentDomain');
 const languageSelect = document.getElementById('languageSelect');
+// Đọc từ manifest nên luôn đúng với bản đang cài, không phải sửa tay mỗi lần phát hành
+document.getElementById('versionLabel').textContent = 'v' + chrome.runtime.getManifest().version;
 
 let currentHost = '';
 let currentTabId = null;

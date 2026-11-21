@@ -190,12 +190,27 @@
             display: none;
         }
 
+        /* Cột giữa giữ ô chọn ngôn ngữ ở chính giữa, phiên bản nằm ở góc dưới bên phải */
+        .bottom-row {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            align-items: center;
+            margin-top: 8px;
+        }
+
+        .version {
+            grid-column: 3;
+            justify-self: end;
+            font-size: 10px;
+            color: #6c7086;
+        }
+
         .language-row {
+            grid-column: 2;
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 6px;
-            margin-top: 8px;
             font-size: 11px;
             color: #a6adc8;
         }
@@ -247,13 +262,16 @@
         <a id="privacyLink" href="privacy.html" target="_blank" data-i18n="privacyLink">Quyền riêng tư &amp; giấy phép</a>
     </div>
 
-    <label class="language-row">
-        <span data-i18n="languageLabel">🌐 Ngôn ngữ</span>
-        <select id="languageSelect">
-            <option value="vi" lang="vi">Tiếng Việt</option>
-            <option value="en" lang="en">English</option>
-        </select>
-    </label>
+    <div class="bottom-row">
+        <label class="language-row">
+            <span data-i18n="languageLabel">🌐 Ngôn ngữ</span>
+            <select id="languageSelect">
+                <option value="vi" lang="vi">Tiếng Việt</option>
+                <option value="en" lang="en">English</option>
+            </select>
+        </label>
+        <span class="version" id="versionLabel"></span>
+    </div>
 
     <script src="shared.js"></script>
     <script src="i18n.js"></script>
