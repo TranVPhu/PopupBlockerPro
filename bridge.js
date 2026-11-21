@@ -6,17 +6,23 @@
     let hoveredElement = null;
     let elementStack = [];
 
-    function hostOfOrigin(origin) {
+    function fullHostOfOrigin(origin) {
         try {
-            return new URL(origin).hostname.replace(/^www\./, '');
+            return new URL(origin).hostname;
         } catch (_) {
             return ''; // Origin 'null' của iframe sandbox
         }
     }
 
+    function hostOfOrigin(origin) {
+        return fullHostOfOrigin(origin).replace(/^www\./, '');
+    }
+
     // Iframe about:blank/blob: không có hostname riêng -> thuộc về trang chứa nó
     const ancestorOrigins = Array.from(window.location.ancestorOrigins || []);
-    const currentHost = window.location.hostname.replace(/^www\./, '') || hostOfOrigin(ancestorOrigins[0]);
+    // Giữ nguyên "www." để khớp bộ lọc ABPVN/EasyList (VD: www.youtube.com trong $generichide)
+    const fullHost = window.location.hostname || fullHostOfOrigin(ancestorOrigins[0]);
+    const currentHost = fullHost.replace(/^www\./, '');
     const topHost = ancestorOrigins.length > 0 ? hostOfOrigin(ancestorOrigins[ancestorOrigins.length - 1]) : currentHost;
 
     const GENERIC_COSMETIC_CSS = `
@@ -57,8 +63,9 @@
 
     // Áp bộ lọc ABPVN (##) cho tên miền hiện tại và các tên miền cha, trừ các ngoại lệ (#@#).
     // Mỗi selector là một luật CSS riêng: một selector không hợp lệ chỉ làm hỏng chính nó.
+    // Tên miền tính từ hostname đầy đủ: www.a.com khớp luật của www.a.com và a.com, còn a.com không khớp luật của www.a.com
     function buildListCosmeticCss() {
-        const parts = currentHost.split('.');
+        const parts = fullHost.split('.');
         const hosts = parts.map((_, i) => parts.slice(i).join('.'));
         const unhide = new Set(hosts.flatMap(host => PB_COSMETIC.unhide[host] || []));
         // Quy tắc @@...$generichide: trang này phát hiện hoặc bị hỏng bởi các bộ lọc chung
