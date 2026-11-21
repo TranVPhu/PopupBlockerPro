@@ -6,3 +6,6 @@ CaiDatChanPopup.spec
 _metadata/
 scratch/
 node_modules/
+.release.env
+release.py
+test_release.py
