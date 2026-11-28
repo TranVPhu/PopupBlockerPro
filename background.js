@@ -73,6 +73,14 @@ function syncDnrAllowRules() {
 }
 
 // Badge do Chrome tự đếm: gồm request bị DNR chặn + popup/tab bị chặn (cộng thêm qua tabUpdate)
+// Tắt bảo vệ -> icon có gạch chéo đỏ
+function syncActionIcon(enabled) {
+    const suffix = enabled ? '' : '_off';
+    const path = {};
+    for (const size of [16, 32, 48, 128]) path[size] = `icons/icon${size}${suffix}.png`;
+    chrome.action.setIcon({ path }).catch(pbLogWarning('Không đổi được icon'));
+}
+
 function syncBadgeMode(enabled) {
     if (!chrome.declarativeNetRequest.setExtensionActionOptions) return;
     chrome.declarativeNetRequest.setExtensionActionOptions({ displayActionCountAsBadgeText: enabled }).catch(pbLogWarning('Không đổi được chế độ badge'));
@@ -100,6 +108,7 @@ const ready = (async () => {
 ready.then(async () => {
     syncDnrState(isEnabled);
     syncBadgeMode(isEnabled);
+    syncActionIcon(isEnabled);
     chrome.action.setBadgeBackgroundColor({ color: '#f38ba8' }).catch(() => { });
     await pruneTempAllow();
     // Chỉ tạo khi chưa có: tạo lại sẽ reset bộ đếm giờ, mà service worker có thể thức dậy liên tục
@@ -183,6 +192,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
         syncDnrState(isEnabled);
         syncDnrAllowRules();
         syncBadgeMode(isEnabled);
+        syncActionIcon(isEnabled);
     }
     if (changes.whitelist !== undefined) {
         whitelist = changes.whitelist.newValue;
