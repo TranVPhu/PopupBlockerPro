@@ -43,6 +43,10 @@
             const now = Date.now();
 
             // Nếu KHÔNG có cử chỉ bấm chuột từ người dùng -> Chặn 100% (Popunder, Timer popup)
+            // blob:/data: không phải trang quảng cáo: đó là cách web app (Gemini, Docs...) trao file tải về sau khi xử lý bất đồng bộ
+            const isFileUrl = typeof url === 'string' && /^\s*(blob:|data:(?!text\/html))/i.test(url);
+            if (isFileUrl) return Reflect.apply(nativeOpen, targetWin, args);
+
             if (!hasUserGesture) {
                 console.log('[Popup & Overlay Blocker] Đã chặn popup tự kích hoạt (Không có user gesture):', url);
                 reportBlocked();
@@ -196,7 +200,9 @@
         // Chỉ chặn click giả lập (dispatchEvent) nhắm vào link mở tab mới.
         // Các click giả lập khác (input.click() mở hộp chọn file, dropdown của React/Vue...) phải được giữ nguyên.
         if (!e.isTrusted) {
-            if (anchor.target === '_blank') {
+            const href = anchor.getAttribute('href') || '';
+            const isDownload = anchor.hasAttribute('download') || /^(blob:|data:)/i.test(href);
+            if (anchor.target === '_blank' && !isDownload) {
                 e.stopImmediatePropagation();
                 e.preventDefault();
                 reportBlocked();

@@ -61,7 +61,8 @@ function syncDnrAllowRules() {
             action: { type: "allow" },
             condition: {
                 initiatorDomains: domains,
-                resourceTypes: ["script", "image", "xmlhttprequest", "stylesheet", "media", "font", "other"]
+                // Gồm cả main_frame/sub_frame: tải file là một lượt điều hướng do trang whitelist khởi tạo (VD Gemini -> googleusercontent.com)
+                resourceTypes: ["main_frame", "sub_frame", "script", "image", "xmlhttprequest", "stylesheet", "media", "font", "ping", "object", "websocket", "other"]
             }
         });
     }
@@ -241,6 +242,22 @@ function isFromExtensionPage(sender) {
     return !!sender.url && sender.url.startsWith(chrome.runtime.getURL(''));
 }
 
+// Các tên miền của cùng một dịch vụ: tab mở sang nhau (VD tải file từ Gemini về googleusercontent.com) không phải quảng cáo
+const RELATED_SITE_GROUPS = [
+    ['google.com', 'googleusercontent.com', 'gstatic.com', 'googleapis.com', 'googledrive.com', 'youtube.com', 'ggpht.com'],
+    ['microsoft.com', 'live.com', 'office.com', 'sharepoint.com', 'microsoftonline.com', 'officeapps.live.com'],
+    ['facebook.com', 'fbcdn.net'],
+    ['dropbox.com', 'dropboxusercontent.com'],
+    ['github.com', 'githubusercontent.com'],
+    ['openai.com', 'chatgpt.com', 'oaiusercontent.com'],
+    ['anthropic.com', 'claude.ai', 'claudeusercontent.com']
+];
+
+function isRelatedHost(a, b) {
+    const inGroup = (host, domain) => host === domain || host.endsWith('.' + domain);
+    return RELATED_SITE_GROUPS.some(g => g.some(d => inGroup(a, d)) && g.some(d => inGroup(b, d)));
+}
+
 function normalizeHost(hostname) {
     return (hostname || '').replace(/^www\./, '');
 }
@@ -340,7 +357,7 @@ async function updateCosmeticCss(sender, { css, previous }) {
 // Quyết định đóng hay giữ tab mới dựa trên URL đích thật sự
 async function judgeNewTab(tabId, { sourceTabId, sourceHost, userInitiated }, url) {
     const targetHost = new URL(url).hostname;
-    if (!targetHost) return;
+    if (!targetHost) return; // blob:/data: không có hostname -> không phải quảng cáo
 
     // Nếu là trang đăng nhập ủy quyền (Google, Microsoft, Facebook OAuth) -> Tuyệt đối không đóng!
     if (isOAuthHost(targetHost)) return;
@@ -348,7 +365,7 @@ async function judgeNewTab(tabId, { sourceTabId, sourceHost, userInitiated }, ur
     // Tên miền chuyên popup quảng cáo -> chặn kể cả khi có click thật (chiêu "click đâu cũng mở tab quảng cáo")
     const isKnownPopupAd = isPopupAdHost(targetHost);
     // Không có cử chỉ người dùng hợp lệ mà mở sang domain khác -> Chặn!
-    const isCrossSite = normalizeHost(sourceHost) !== normalizeHost(targetHost);
+    const isCrossSite = normalizeHost(sourceHost) !== normalizeHost(targetHost) && !isRelatedHost(sourceHost, targetHost);
 
     if (isKnownPopupAd || (!userInitiated && isCrossSite)) {
         delete watchedTabs[tabId];
